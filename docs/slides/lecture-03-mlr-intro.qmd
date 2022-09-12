@@ -1,0 +1,681 @@
+---
+title: "Multiple Linear Regression"
+author: "Brandon M. Greenwell"
+institute: "University of Cincinnati"
+format: 
+  revealjs:
+    logo: images/uc.png
+    chalkboard: true
+    slide-number: true
+    scrollable: true
+    auto-play-media: false
+    footer: "BANA 7052: Applied Linear Regression"
+---
+
+## Main topics
+
+- Introduction to multiple linear regression (MLR)
+- Least squares (LS) estimation
+- Inference in the MLR model
+- Coefficient of determination ($R^2$)
+- Polynomial regression 
+
+```{r, setup}
+library(knitr)
+
+opts_chunk$set(
+  echo = TRUE,
+  dpi = 300,     
+  #fig.retina = 3,  
+  fig.align = "center",
+  fig.width = 6,
+  fig.asp = 0.618,
+  out.width = "100%",
+ # size = "small",
+  message = FALSE,
+  warning = FALSE,
+  error = FALSE
+)
+
+knit_hooks$set(
+  par = function(before, options, envir) {
+    if (before && options$fig.show != "none") {
+      par(
+        mar = c(4, 4, 0.1, 0.1), 
+        cex.lab = 0.95, 
+        cex.axis = 0.8,  # was 0.9
+        mgp = c(2, 0.7, 0), 
+        tcl = -0.3, 
+        las = 1
+      )
+      if (is.list(options$par)) {
+        do.call(par, options$par)
+      }
+    }
+  }
+)
+```
+
+## Required packages
+
+```{r packages}
+pkgs <- c(
+  "GGally",   # for ggplot2-based SPLOMs
+  "ggplot2",  # for fancy graphics
+  "investr",  # for plotFit() function
+  # "lattice",  
+  "plotly"    # for interactive plots
+)
+install <- setdiff(pkgs, installed.packages()[, "Package"])
+install.packages(install)
+
+library(ggplot2)
+
+theme_set(theme_bw())  # set ggplot2 theme for the lecture
+
+# Use a more colorblind-friendly color palette
+palette("Okabe-Ito")
+```
+
+## A quick note on linear algebra
+
+* Knowing a bit of linear algebra is useful, but not a prerequisite here (i.e., you won't be asked to multiply matrices, etc.)
+
+* We'll just cover key concepts (**don't get too hung up on the equations, etc.**)
+
+* Linear algebra is key to understanding many statistical concepts at a deeper level
+
+* Learning more:
+
+  - Gilbert Strang's website: <https://math.mit.edu/~gs/>
+
+
+# Introduction to multiple linear regression (MLR)
+
+
+## Multiple linear regression models
+
+Suppose that the yield ($Y$) in pounds of conversion in a chemical process depends on temperature ($X_1$) and the catalyst concentration ($X_2$). A **multiple linear regression** (MLR) model that might describe this relationship is $$Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \epsilon, \quad \epsilon \sim D\left(0, \sigma^2\right)$$
+
+Hence, the (**conditional**) mean response is $$E\left(Y | X_1, X_2\right) = E\left(Y\right) = \beta_0 + \beta_1 X_1 + \beta_2 X_2$$
+
+This is an MLR model in two features: $X_1$ and $X_2$
+
+
+## A quick simulation
+
+```{r}
+# Simulate data from an MLR model
+set.seed(101)  # for reproducibility
+n <- 50
+df <- data.frame("x1" = runif(n), "x2" = runif(n))
+df$y = 1 + 2*df$x1 - 3*df$x2 + rnorm(n, sd = 1)
+head(df)  # print first few rows
+```
+
+## Scatterplot matrices
+
+Can be useful to plot pairwise scatterplots:
+
+* Base R: `pairs()`
+
+* **ggplot2**: `GGally::ggpairs()`
+
+* **lattice**: `lattice::splom()`
+
+* **car**: `car::scatterplotMatrix()` or `car::spm()`
+
+
+## Scatterplot matrices
+
+```{r mlr-3d-df-02}
+pairs(df, cex = 1.2, pch = 19,  # type ?pairs in R for details
+      col = adjustcolor("black", alpha.f = 0.5))
+```
+
+
+## 3-d plots (rarely useful)
+
+:::: {.columns}
+
+::: {.column width="50%"}
+```{r plotly-01, echo=FALSE}
+library(plotly)
+
+# Draw (interactive) 3-D scatterplot
+plot_ly(data = df, x = ~x1, y = ~x2, z = ~y, 
+        mode = "markers", type = "scatter3d",
+        marker = list(opacity = 0.7, symbol = 1, 
+                      size = 5, color = "black")) %>%
+  layout(
+    autosize = FALSE, width = 550, height = 550,
+    scene = list(
+      aspectmode = "manual", 
+      aspectratio = list(x = 1, y = 1, z = 1),
+      xaxis = list(title = "X1", range = c(0, 1)),
+      yaxis = list(title = "X2", range = c(0, 1)),
+      zaxis = list(title = "Y")
+    )
+  )
+```
+:::
+
+::: {.column width="50%"}
+```{r plotly-02, echo=FALSE}
+library(plotly)
+
+# Fit an MLR model to the simulated data
+fit <- lm(y ~ x1 + x2, data = df) 
+betas <- coef(fit)  # extract estimated coefficients
+
+# Generate predictions over a fine grid 
+.x1 <- .x2 <- seq(from = 0, to = 1, length = 50)
+yhat <- t(outer(.x1, .x2, function(x1, x2) {
+  betas[1] + betas[2]*x1 + betas[3]*x2
+}))
+
+# Draw (interactive) 3-D scatterplot with fitted mean response
+plot_ly(x = ~.x1, y = ~.x2, z = ~yhat, showscale = FALSE,
+        type = "surface", opacity = 0.7) |>
+  add_trace(data = df, x = ~x1, y = ~x2, z = ~y, 
+            showscale = FALSE,
+            showlegend = FALSE,
+            mode = "markers", 
+            type = "scatter3d",
+            marker = list(opacity = 0.7, symbol = 1, 
+                          size = 5, color = "black")) |>
+  layout(
+    autosize = FALSE, width = 550, height = 550,
+    scene = list(
+      showlegend = FALSE,
+      aspectmode = "manual", 
+      aspectratio = list(x = 1, y = 1, z = 1),
+      xaxis = list(title = "X1", range = c(0, 1)),
+      yaxis = list(title = "X2", range = c(0, 1)),
+      zaxis = list(title = "Y")
+    )
+  )
+```
+:::
+
+::::
+
+
+## The general MLR model
+
+The MLR model with normal errors is given by $$Y_i = \beta_0 + \sum_{j = 1}^{p-1}\beta_j X_{ij} + \epsilon_i, \quad i = 1, 2, \dots, n$$
+
+* $\beta_0, \beta_1, \dots, \beta_{p-1}$ are (unknown) regression coefficients (AKA weights or parameters)
+
+* $X_{i1}, X_{i2}, \dots, X_{i,p-1}$ are the predictors
+
+* $\epsilon_i \stackrel{iid}{\sim} N\left(0, \sigma^2\right)$ (the usual assumptions)
+
+
+## Categorical predictors
+
+```{r dummy-encoding, echo=FALSE, out.width="100%"}
+knitr::include_graphics("images/dummy-encoding.png")
+```
+
+More on categorical predictors in [Lecture 05](https://bgreenwell.github.io/uc-bana7052/slides/lecture-05#1)
+
+
+# Least squares (LS) estimation
+
+
+## Estimating the coefficients
+
+The regression coefficients can again be estimated using least squares by minimizing $$\begin{align}SSE &= \sum_{i = 1}^n\left[Y_i - f\left(\boldsymbol{X}_i\right)\right]^2 \\&= \sum_{i = 1}^n\left[Y_i - \beta_0 - \beta_1 X_{1i} - \beta_2 X_{2i} - \dots - \beta_{p-1} X_{p-1, i}\right]^2\end{align}$$
+
+Equating the partial derivatives to zero amounts to solving a system of $n$ (linear) equations in $p$ unknowns
+
+
+## Matrix notation {.smaller}
+
+ In matrix form, the MLR can be expressed as $\boldsymbol{Y} = \boldsymbol{X}\boldsymbol{\beta} + \boldsymbol{\epsilon}$, where
+ 
+ * $\boldsymbol{Y} = \left(Y_1, Y_2, \dots, Y_n\right)^\top$ is an $n \times 1$ vector of responses
+ 
+ * $\boldsymbol{\beta} = \left(\beta_0, \beta_1, \dots, \beta_{p-1}\right)^\top$ is an $p \times 1$ vector of coefficients
+ 
+ * $\boldsymbol{\epsilon} = \left(\epsilon_1, \epsilon_2, \dots, \epsilon_n\right)^\top \sim N\left(\boldsymbol{0}_n, \sigma^2 \boldsymbol{I}_n\right)$ (the usual assumptions)
+ 
+ * $\boldsymbol{X} = \begin{bmatrix} 1 & X_{11} & X_{12} & \cdots & X_{1,p-1} \\ 1 & X_{21} & X_{22} & \cdots & X_{2,p-1} \\ \vdots & \vdots & & \vdots \\ 1 & X_{n1} & X_{n2} & \cdots & X_{n,p-1} \\ \end{bmatrix}$ is an $n \times p$ [model matrix](https://en.wikipedia.org/wiki/Design_matrix)
+
+
+## Least squares estimation
+
+We want to find the value of $\boldsymbol{\beta}$ that minimizes $$\begin{align} SSE &= \left(\boldsymbol{Y} - \boldsymbol{X}\boldsymbol{\beta}\right)^\top\left(\boldsymbol{Y} - \boldsymbol{X}\boldsymbol{\beta}\right) \\ &= \boldsymbol{Y}^\top\boldsymbol{Y} - 2\boldsymbol{\beta}^\top\boldsymbol{X}^\top\boldsymbol{Y} + \boldsymbol{\beta}^\top\boldsymbol{X}^\top\boldsymbol{X}\boldsymbol{\beta} \end{align}$$
+
+* Differentiating $SSE$ w.r.t. $\boldsymbol{\beta}$ and equating to zero yields $$-2\boldsymbol{X}^\top\boldsymbol{Y} + 2\boldsymbol{X}^\top\boldsymbol{X}\boldsymbol{\beta} = \boldsymbol{0}_p$$
+
+* The normal equations: $\boldsymbol{X}^\top\boldsymbol{X}\boldsymbol{\beta} = \boldsymbol{X}^\top\boldsymbol{Y}$
+
+
+## Least squares estimation
+
+<br>
+
+Solving the normal equations for $\boldsymbol{\beta}$ leads to the least squares estimate:
+
+$$\hat{\boldsymbol{\beta}} = \left(\boldsymbol{X}^\top\boldsymbol{X}\right)^{-1}\boldsymbol{X}^\top\boldsymbol{Y}$$
+
+$\boldsymbol{X}$ has to be [full rank](https://en.wikipedia.org/wiki/Rank_(linear_algebra)#:~:text=A%20matrix%20is%20said%20to,number%20of%20rows%20and%20columns.)^[This is one reason why we dummy encode categorical variables!
+] in order for $\boldsymbol{X}^\top\boldsymbol{X}$ to be invertible!
+
+
+# The fitted model
+
+* Fitted values: $\hat{\boldsymbol{Y}} = \boldsymbol{X}\hat{\boldsymbol{\beta}} = \boldsymbol{X}\left(\boldsymbol{X}^\top\boldsymbol{X}\right)^{-1}\boldsymbol{X}^\top\boldsymbol{Y} = \boldsymbol{H}\boldsymbol{Y}$
+
+* Residuals: $\boldsymbol{\epsilon} = \boldsymbol{Y} - \hat{\boldsymbol{Y}} = \boldsymbol{Y} - \boldsymbol{X}\hat{\boldsymbol{\beta}} = \left(\boldsymbol{I} - \boldsymbol{H}\right)\boldsymbol{Y}$
+
+$\boldsymbol{H}$ is both *symmetric* (i.e., $\boldsymbol{H}^\top = \boldsymbol{H}$) and *idempotent* (i.e., $\boldsymbol{H} = \boldsymbol{H}\boldsymbol{H}$) and is referred to as the [hat matrix](https://en.wikipedia.org/wiki/Projection_matrix#:~:text=In%20statistics%2C%20the%20projection%20matrix,has%20on%20each%20fitted%20value.) (the diagonal entries of $H$ are important in **detecting "influential" observations**)
+
+
+## Properties of $\hat{\boldsymbol{\beta}}$
+
+Assuming $\boldsymbol{\epsilon} \sim N\left(\boldsymbol{0}_n, \sigma^2\boldsymbol{I}_n\right)$, what are some properties of $\hat{\boldsymbol{\beta}}$, the LS estimate of $\boldsymbol{\beta}$?
+
+* Unbiased: $E\left(\hat{\boldsymbol{\beta}}\right) = \boldsymbol{\beta}$
+
+* Variance-covariance matrix: $Var\left(\hat{\boldsymbol{\beta}}\right) = \sigma^2 \left(\boldsymbol{X}^\top\boldsymbol{X}\right)^{-1}$
+
+* Sampling distribution: $\hat{\boldsymbol{\beta}} \sim N\left(\boldsymbol{\beta}, \sigma^2 \left(\boldsymbol{X}^\top\boldsymbol{X}\right)^{-1}\right)$
+
+::: aside
+ $\boldsymbol{\epsilon} \sim N\left(\boldsymbol{0}_n, \sigma^2\boldsymbol{I}_n\right)$ is just a fancy way of saying that all the errors are independent and have a $N\left(0, \sigma^2\right)$ distribution.
+:::
+
+
+## Example: delivery data
+
+A soft drink bottler is analyzing vending machine service routes in their distribution system. They are interested in predicting the amount of time required by the route driver to service the vending machines in an outlet. This service activity includes stocking the machine with beverage products and minor maintenance or housekeeping. The industrial engineer responsible for the study has suggested that the two most important variables affecting delivery time in minutes ( $Y$ ) are the number of cases of product stocked ( $X_1$ ) and the distance walked by the route driver in feet ( $X_2$ ). The engineer has collected $n = 25$ observations on delivery time which are stored in the file [delivery.csv](https://bgreenwell.github.io/uc-bana7052/data/delivery.csv). 
+
+
+## Example: delivery data
+
+```{r delivery-01}
+# Load the delivery data
+url <- "https://bgreenwell.github.io/uc-bana7052/data/delivery.csv"
+delivery <- read.csv(url)
+head(delivery, n = 10)  # print first 10 observations
+```
+
+Let's use these data to fit the MLR model: $$Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i}, \quad \epsilon \stackrel{iid}{\sim} N\left(0, \sigma^2\right)$$ 
+
+
+---
+
+```{r lec03-delivery-ggpairs}
+GGally::ggpairs(delivery[, -1])  # ggplot2-based SPLOM
+```
+
+---
+
+```{r lec03-delivery-splom}
+lattice::splom(delivery[, -1],  type = c("p", "smooth"), pch = 19, 
+               col = "dodgerblue2", lty = "dotted", alpha = 0.6)
+```
+
+
+## Example: delivery data
+
+```{r lec03-delivery-lm-01}
+# Fit an MLR model
+(delivery_fit <- lm(DeliveryTime ~ NumberofCases + Distance, 
+                    data = delivery))
+
+# Extract estimated coefficients
+coef(delivery_fit)  
+```
+
+
+## Example: delivery data
+
+```{r lec03-delivery-lm-02}
+# Fit an MLR model
+(delivery_fit <- lm(DeliveryTime ~ ., data = delivery))
+
+# Extract estimated coefficients
+coef(delivery_fit)  
+```
+
+::: aside
+Note that `y ~ ., data = df` is shorthand for "regress `y` on every other column in `df`." Model formulas in R are very convenient (and powerful). Type `?formula` in R for more details!
+:::
+
+
+## Example: delivery data
+
+```{r lec03-delivery-lm-03}
+# Fit an MLR model
+delivery <- subset(delivery, select = -Index)  # remove Index column
+(delivery_fit <- lm(DeliveryTime ~ ., data = delivery))
+```
+
+## How do we interpret $\hat{\beta}_i$?
+
+```{r lec03-delivery-lm-04}
+round(coef(delivery_fit), digits = 3)
+```
+
+* **All else held constant**, for every one additional case, the mean delivery time increases by an estimated 1.616 minutes
+
+* **All else held constant**, for every additional foot traveled, the mean delivery time increases by an estimated 0.014 minutes
+
+. . .
+
+In general, $\hat{\beta}_j$ is the estimated increase in the mean response per one-unit increase in $X_j$ (**all else held constant**)
+
+## Example: delivery data
+
+Let's check the results by hand!
+
+```{r lec03-delivery-matrix-wrong}
+xnames <- c("NumberofCases", "Distance")
+X <- data.matrix(delivery[, xnames])  # model matrix (wrong)
+head(X)
+Y <- delivery$DeliveryTime
+solve(t(X) %*% X) %*% t(X) %*% Y  # beta hat = (X'X)^(-1)X'y
+```
+
+. . .
+
+Why aren't these estimates correct? `r set.seed(101); emo::ji("sad")`
+
+## Example: delivery data
+
+```{r lec03-delivery-matrix-right}
+X <- model.matrix(~ NumberofCases + Distance, 
+                  data = delivery)  # model matrix (right)
+head(X)
+Y <- delivery$DeliveryTime
+solve(t(X) %*% X) %*% t(X) %*% Y  
+```
+
+## Example: delivery data
+
+```{r lec03-delivery-lm-output}
+# Extract fitted values and residuals
+.fitted <- fitted(delivery_fit)
+.resids <- residuals(delivery_fit)
+
+# Add fitted values and residuals to original data
+head(cbind(delivery, "Fitted" = .fitted, "Residual" = .resids), n = 10)
+```
+
+. . .
+
+What would `.fitted + .resids` produce?
+
+
+# Inference in the MLR model
+
+
+## Inference in the MLR model
+
+Once we fit an MLR model to a sample, we might ask ourselves:
+
+* How well does the model fit the data? (Lectures [04](https://bgreenwell.github.io/uc-bana7052/slides/lecture-04#1)/[06](https://bgreenwell.github.io/uc-bana7052/slides/lecture-06#1))
+    
+* Which predictors seem "important"?
+
+* Is a simpler model just as good?
+
+::: aside
+Statistical inference in MLR is not that different from inference in SLR !
+:::
+
+## Significance of the regression
+
+Proposed model: $Y = \beta_0 + \beta_1 X_1 + \dots + \beta_p X_p + \epsilon$
+
+<br>
+
+Is there a (statistically significant) linear relationship between the response and **ANY** of the features?
+
+<br>
+
+. . .
+
+Hypotheses of interest:
+
+$\quad H_0: \beta_1 = \beta_2 = \dots = \beta_p = 0$
+
+$\quad H_1: \beta_j \ne 0$ for at least one $j \in \left\{1, 2, \dots, p\right\}$
+
+## The general linear $F$-test
+
+$$\quad H_0: \beta_1 = \beta_2 = \dots = \beta_p = 0$$
+
+**Full model**: $Y = \beta_0 + \beta_1 X_1 + \dots + \beta_p X_p + \epsilon$
+
+**Reduced model**: $Y = \beta_0 + \epsilon$ (**if $H_0$ were true**)
+
+. . .
+
+* $F_{obs} = \frac{SSE(R) - SSE(F)}{df_R - df_F} \div \frac{SSE(F)}{df_F} = \frac{MSR}{MSE}$
+    
+* Reject $H_0$ whenever $F_{obs} > F_{1 - \alpha, df_R - df_F, df_F}$
+    
+    - Here $df_R = n - 1$ and $df_F = n - (p + 1) = n - p - 1$
+    
+
+## Example: delivery data
+
+```{r delivery-ftest-01, highlight.output=c(12:13, 19)}
+summary(delivery_fit)
+```
+
+
+## Example: delivery data 
+
+```{r delivery-ftest-02, highlight.output=7}
+# Manually construct F-test
+delivery_fit_reduced <- lm(DeliveryTime ~ 1, data = delivery)
+anova(delivery_fit_reduced, delivery_fit)
+```
+
+
+## Inference for $\beta_j$
+
+Hypothesis test for a **single coefficient** (this is called a *marginal test*):
+
+$$H_0: \beta_j = 0 \quad vs. \quad H_1: \beta_j \ne 0$$
+
+* Test statistic: $t_{obs} = \frac{\hat{\beta}_j}{\hat{SE}\left(\hat{\beta}_j\right)}$
+
+* Reject $H_0$ whenever $\left|t_{obs}\right| > t_{1 - \alpha/2, n - p}$
+
+* $\left(1 - \alpha\right)100$% CI for $\beta_j$: $$\hat{\beta}_j \pm t_{1 - \alpha/2, n - p} \hat{SE}\left(\hat{\beta}_j\right)$$
+
+
+## Example: delivery data
+
+```{r lec03-delivery-marginal-inference-01}
+# Print summary of the model
+summary(delivery_fit)  # displays coefs, SEs, marginal tests, etc.
+```
+
+
+## Example: delivery data
+
+```{r lec03-delivery-marginal-inference-02}
+# Construct 95% CIs for the coefficients
+confint(delivery_fit, level = 0.95)
+```
+
+
+# Coefficient of determination
+
+
+## Coefficient of determination
+
+:::: {.columns}
+
+::: {.column width="50%"}
+R-squared ($R^2$)
+
+* $R^2 = \frac{SSR}{SST} = 1 - \frac{SSE}{SST}$
+
+* $R^2$ will always increase as more terms are added to the model! `r set.seed(103); emo::ji("vomit")`
+:::
+
+::: {.column width="50%"}
+Adjusted R-squared ($R_{adj}^2$)
+
+<!-- * $R_{adj}^2 = 1 - \left(\frac{n - 1}{n - p}\right)\frac{SSE}{SST}$ -->
+* $R_{adj}^2 = 1 - \frac{MSE}{SST/\left(n - 1\right)}$
+
+* Penalizes $R^2$ if there are "too many" terms in the model
+
+* $R_{adj}^2$ and $MSE$ provide equivalent information
+:::
+
+::::
+
+
+## Example: delivery data
+
+```{r lec03-delivery-rsquared-01, highlight.output=18}
+summary(delivery_fit)
+```
+
+
+## Example: delivery data
+
+```{r lec03-delivery-rsquared-02, highlight.output=c(14:16, 21)}
+# Simulate new columns at random
+set.seed(101)  # for reproducibility
+delivery2 <- delivery
+delivery2$X3 <- rnorm(nrow(delivery))
+delivery2$X4 <- rnorm(nrow(delivery))
+delivery2$X5 <- rnorm(nrow(delivery))
+
+# Update the fitted mode
+delivery2_fit <- lm(DeliveryTime ~ ., data = delivery2)
+
+# Print model summary
+summary(delivery2_fit)
+```
+
+
+# Polynomial regression
+
+
+## Polynomial regression
+
+* [Polynomial regression](https://en.wikipedia.org/wiki/Polynomial_regression) is just a special case of the MLR model
+
+* A second order model in a single predictor $$Y = \beta_0 + \beta_1 X + \beta_2 X^2 + \epsilon$$
+
+* A *k*-th order model in a single predictor (Typically $k \le 3$) $$Y = \beta_0 + \sum_{j=1}^k\beta_j X^j + \epsilon$$ 
+
+
+## Example: paper strength data
+
+Data concerning the strength of kraft paper and the percentage of hardwood in the batch of pulp from which the paper was produced.
+
+```{r}
+# Load the hardwood conentration data
+url <- "https://bgreenwell.github.io/uc-bana7052/data/hardwood.csv"
+hardwood <- read.csv(url)
+
+# Print first few observations
+head(hardwood)
+```
+
+
+## Example: paper strength data
+
+```{r}
+#| par: true
+plot(hardwood, pch = 19)
+```
+
+
+## Example: paper strength data
+
+```{r}
+#| par: true
+fit1 <- lm(TsStr ~ HwdCon, data = hardwood)
+investr::plotFit(fit1, pch = 19, col.fit = "red2")
+```
+
+
+## Example: paper strength data
+
+```{r}
+#| code-fold: true
+par(mfrow = c(1, 2), las = 1)
+
+# Plot residuals vs HwdCon (i.e., X)
+par(mfrow = c(1, 2))
+plot(x = hardwood$HwdCon, y = residuals(fit1), xlab = "HwdCon",
+     ylab = "Residuals", main = "Residuals vs HwdCon")
+abline(h = 0, lty = "dotted")
+plot(fit1, which = 1, caption = "", main = "Residuals vs Fitted")
+```
+
+
+## Example: paper strength data
+
+```{r}
+#| par: true
+fit2 <- lm(TsStr ~ HwdCon + I(HwdCon^2), data = hardwood)
+investr::plotFit(fit2, pch = 19, col.fit = "red2")
+```
+
+
+## Example: paper strength data
+
+```{r}
+#| code-fold: true
+par(mfrow = c(2, 3), las = 1)
+for (i in 1:6) {  # try higher-order models
+  fit <- lm(TsStr ~poly(HwdCon, degree = i), data = hardwood)
+  investr::plotFit(fit, main = paste("Degree =", i))
+}
+```
+
+
+## Example: paper strength data
+
+```{r}
+#| code-fold: true
+par(mfrow = c(2, 3))
+for (i in 1:6) {  # try higher-order models
+  fit <- lm(TsStr ~poly(HwdCon, degree = i), data = hardwood)
+  investr::plotFit(fit, main = paste("Degree =", i), 
+                   interval = "confidence", shade = TRUE,
+                   xlim = c(-10, 30))
+}
+```
+
+
+## Polynomial regression
+
+Some cautions `r emo::ji("warning")`
+
+Keep the order of the model as low as possible
+
+* This is especially true if you are using the model as a predictor ([*over fitting*](https://bgreenwell.github.io/intro-ml-r/intro-ml-r.html#14))
+
+* Use the simplest model possible to explain the data, but no simpler (*parsimony*)
+
+* An $n - 1$ order model can perfectly fit a data set with $n$ observations (Why is this bad `r emo::ji("thinking")`)
+
+
+## Polynomial regression
+
+Two model-building strategies:
+
+1. Fit the lowest order polynomial possible and build up (forward selection)
+    
+2. Fit the highest order polynomial of interest, and remove terms one at a time (backward elimination)
+    
+These two procedures may not result in the same final model
+
+Increasing the order can result in an ill-conditioned $\boldsymbol{X}^\top\boldsymbol{X}$ and [multicollinearity](https://en.wikipedia.org/wiki/Multicollinearity) 

@@ -1,0 +1,808 @@
+---
+title: "Variable selection and model building"
+author: "Brandon M. Greenwell"
+institute: "University of Cincinnati"
+format: 
+  revealjs:
+    logo: images/uc.png
+    chalkboard: true
+    slide-number: true
+    scrollable: true
+    auto-play-media: false
+    footer: "BANA 7052: Applied Linear Regression"
+---
+
+## Main topics
+
+- Interaction effects
+- The modeler's problem 
+- All/best-subsets
+- Forward selection and/or backward elimination
+- Modern alternatives
+
+
+```{r, setup}
+library(knitr)
+
+opts_chunk$set(
+  echo = TRUE,
+  dpi = 300,     
+  #fig.retina = 3,  
+  fig.align = "center",
+  fig.width = 6,
+  fig.asp = 0.618,
+  out.width = "100%",
+ # size = "small",
+  message = FALSE,
+  warning = FALSE,
+  error = FALSE
+)
+
+knit_hooks$set(
+  par = function(before, options, envir) {
+    if (before && options$fig.show != "none") {
+      par(
+        mar = c(4, 4, 0.1, 0.1), 
+        cex.lab = 0.95, 
+        cex.axis = 0.8,  # was 0.9
+        mgp = c(2, 0.7, 0), 
+        tcl = -0.3, 
+        las = 1
+      )
+      if (is.list(options$par)) {
+        do.call(par, options$par)
+      }
+    }
+  },
+  par2 = function(before, options, envir) {
+    if (before && options$fig.show != "none") {
+      par(
+        mar = c(4, 4, 1.2, 0.1), 
+        cex.lab = 0.95, 
+        cex.axis = 0.8,  # was 0.9
+        mgp = c(2, 0.7, 0), 
+        tcl = -0.3, 
+        las = 1
+      )
+      if (is.list(options$par)) {
+        do.call(par, options$par)
+      }
+    }
+  }
+)
+```
+
+
+## Required packages
+
+```{r}
+pkgs <- c(
+  "GGally",       # for generating some of the plots
+  "ggplot2",      # for generating some of the plots
+  "gridExtra",    # for generating some of the plots
+  "ISLR2",        # for the MLB salary data
+  "lattice",      # for generating some of the plots
+  "leaps",        # for all-subsets regression
+  "SMPracticals"  # for Hald's cement data
+)
+install <- setdiff(pkgs, installed.packages()[, "Package"])
+install.packages(install)
+
+library(ggplot2)
+
+theme_set(theme_bw())  # set ggplot2 theme for the lecture
+
+# Use a more colorblind-friendly color palette
+palette("Okabe-Ito")
+```
+
+
+## Learning more
+
+:::: {.columns}
+
+::: {.column width="50%"}
+* [An R Companion to Applied regression](https://socialsciences.mcmaster.ca/jfox/Books/Companion/index.html) (3rd ed.)
+
+  - Chapter 4: Fitting Linear Models
+  
+    * Section on "Factors in Linear Models"
+
+  - Chapter 8: Regression Diagnostics
+
+* The R package [car](https://cran.r-project.org/package=car)
+
+:::
+
+::: {.column width="50%"}
+![](images/rcar-book.jpeg){width=80%}
+
+:::
+
+::::
+
+
+## Learning more
+
+:::: {.columns}
+
+::: {.column width="50%"}
+* [Linear Models with R](https://julianfaraway.github.io/faraway/LMR/) (2nd ed.)
+
+  - Chapter 9: Transformation
+
+  - Chapter 14: Categorical Predictors
+  
+  - There's a [Python](https://www.python.org/) version of the book as well
+
+* The R package [faraway](https://cran.r-project.org/package=faraway)
+
+:::
+
+::: {.column width="50%"}
+![](images/lmr2-book.png){width=80%}
+
+:::
+
+::::
+
+
+## Learning (even) more
+
+Some great talks that I highly encourage watching (especially if you plan on becoming a data scientist):
+
+* Frank Harrell's talk on some of the [Controversies in Predictive Modeling, Machine Learning, and Validation](https://www.fharrell.com/talk/stratos19/)
+
+* Frank Harrell's talk regarding some [Musings on Statistical Models vs. Machine Learning in Health Research](https://www.fharrell.com/talk/mlhealth/)
+
+* Trevor Hastie's talk on [Predictive Models in Health Research](https://hastie.su.domains/TALKS/krakow_hastie_V2.mp4)
+
+* Anything by Brad Efron...If you plan to publish/present a lot in the sciences, I highly encourage [this talk](https://www.youtube.com/watch?v=jU4W3KtQmKs)
+
+
+# Interaction effects
+
+
+## Removing the additive assumption {.smaller}
+
+* In our previous analyses of the MLB salary data, we assumed that the model was additive: $$E\left(\mathtt{Salary}\right) = \beta_0 + \beta_1 \mathtt{CRBI} + \beta_2 \mathtt{CHits} + \beta_3 \mathtt{Walks} + \beta_4 \mathtt{Runs}$$
+
+* This model assumes, for example, that the average effect on `Salary` of a one-unit increase in `CRBI` is always $\beta_1$, regardless of the value of the other predictors
+
+* By including an [interaction effect](https://en.wikipedia.org/wiki/Interaction_(statistics)) (e.g., the product) between, say, `CRBI` and `CHits`, we allow the effect of `CRBI` on `Salary` to vary with `CHits` (and vice versa)
+
+  - This is no longer an [additive model](https://en.wikipedia.org/wiki/Additive_model#:~:text=In%20statistics%2C%20an%20additive%20model,class%20of%20nonparametric%20regression%20models.) since $$E\left(\mathtt{Salary}\right) = f_1\left( \mathtt{Walks}\right) + f_2\left( \mathtt{Runs}\right) + f_3\left(\mathtt{CRBI}, \mathtt{CHits}\right)$$
+
+  - The term $f_3\left(\mathtt{CRBI}, \mathtt{CHits}\right)$ is called a two-way interaction effect because it is a function of two predictors
+
+::: aside
+Check out [generalized additive models (GAMs)](https://en.wikipedia.org/wiki/Generalized_additive_model)
+:::
+
+
+## Visualizing interaction effects
+
+You can think of interaction effects as a type of (restrictive) curvature. To illustrate, consider the following models:
+
+$$\begin{align}E\left(Y|x_1, x_2\right) &= 0.3 + 0.5 x_1 - 0.7 x_2 \\ E\left(Y|x_1, x_2\right) &= 0.3 + 0.5 x_1 - 0.7 x_2 + 3.4  x_1  x_2\end{align}$$
+
+Each will result in a 2-D plane which can be visualized quite easily using R's built-in **lattice** package
+
+```{r}
+#| code-fold: true
+#| eval: false
+library(lattice)
+
+# Function to compute mean response for both a simple additive, and 2-way
+# interaction model
+regFun <- function(x1, x2, interact = FALSE, sigma = 0.3) {
+  mu <- 0.3 + 0.5 * x1 - 0.7 * x2
+  if (isTRUE(interact)) {
+    mu + 3.4 * x1 * x2
+  } else {
+    mu
+  }
+}
+
+# Generate data to plot
+x1 <- seq(from = 0, to = 1, length = 25)
+x2 <- seq(from = 0, to = 5, length = 25)
+df1 <- df2 <- expand.grid("x1" = x1, "x2" = x2)
+df1$y <- regFun(df1$x1, df1$x2)
+df2$y <- regFun(df2$x1, df2$x2, interact = TRUE)
+
+# Use lattice's wireframe to plot each surface
+wireframe(y ~ x1 * x2, data = df1, drape = TRUE, colorkey = TRUE,
+          scales = list(arrows = FALSE), screen = list(z = 120, x = -60),
+          main = "No interaction effect")
+wireframe(y ~ x1 * x2, data = df2, drape = TRUE, colorkey = TRUE,
+          scales = list(arrows = FALSE), screen = list(z = 120, x = -60),
+          main = "Interaction effect")
+
+# Show slices of each surface along the x2-axis
+par(mfrow = c(1, 2))  # place plots in a single row
+plot(NULL, NULL, xlim = c(0, 1), ylim = range(df1$y), xlab = "x1", ylab = "y",
+     main = "No interaction effect")
+for (x in x2) {
+  lines(x1, 0.3 + 0.5 * x1 - 0.7 * x)
+}
+plot(NULL, NULL, xlim = c(0, 1), ylim = range(df2$y), xlab = "x1", ylab = "y",
+     main = "Interaction effect")
+for (x in x2) {
+  lines(x1, 0.3 + 0.5 * x1 - 0.7 * x + 3.4 * x1 * x)
+}
+```
+
+
+---
+
+```{r}
+#| echo: false
+library(lattice)
+
+# Function to compute mean response for both a simple additive, and 2-way
+# interaction model
+regFun <- function(x1, x2, interact = FALSE, sigma = 0.3) {
+  mu <- 0.3 + 0.5 * x1 - 0.7 * x2
+  if (isTRUE(interact)) {
+    mu + 3.4 * x1 * x2
+  } else {
+    mu
+  }
+}
+
+# Generate data to plot
+x1 <- seq(from = 0, to = 1, length = 25)
+x2 <- seq(from = 0, to = 5, length = 25)
+df1 <- df2 <- expand.grid("x1" = x1, "x2" = x2)
+df1$y <- regFun(df1$x1, df1$x2)
+df2$y <- regFun(df2$x1, df2$x2, interact = TRUE)
+
+# Use lattice's wireframe to plot each surface
+wireframe(y ~ x1 * x2, data = df1, drape = TRUE, colorkey = TRUE,
+          scales = list(arrows = FALSE), screen = list(z = 120, x = -60),
+          main = "No interaction effect")
+```
+
+
+---
+
+```{r}
+#| echo: false
+# Use lattice's wireframe to plot each surface
+wireframe(y ~ x1 * x2, data = df2, drape = TRUE, colorkey = TRUE,
+          scales = list(arrows = FALSE), screen = list(z = 120, x = -60),
+          main = "Interaction effect")
+```
+
+
+---
+
+```{r}
+#| echo: false
+#| par2: true
+# Show slices of each surface along the x2-axis
+par(mfrow = c(1, 2))  # place plots in a single row
+plot(NULL, NULL, xlim = c(0, 1), ylim = range(df1$y), xlab = "x1", ylab = "y",
+     main = "No interaction effect")
+for (x in x2) {
+  lines(x1, 0.3 + 0.5 * x1 - 0.7 * x)
+}
+plot(NULL, NULL, xlim = c(0, 1), ylim = range(df2$y), xlab = "x1", ylab = "y",
+     main = "Interaction effect")
+for (x in x2) {
+  lines(x1, 0.3 + 0.5 * x1 - 0.7 * x + 3.4 * x1 * x)
+}
+```
+
+::: aside
+Looking at slices of the mean response surface along the $x_2$-axis (i.e., each line represents a different, fixed value of $x_2$)
+:::
+
+
+# The modeler's problem 
+
+
+## The model building process {.smaller}
+
+* "Conflicting" goals in regression model building ([bias-variance tradeoff](https://en.wikipedia.org/wiki/Bias%E2%80%93variance_tradeoff)):
+
+  - Want **as many (useful) predictors as possible** so that the "information content" in the features will influence $\hat{Y}$ (**low bias**)   
+    
+  - Want **as few predictors as necessary** because $Var\left(\hat{Y}\right)$ increases with the number of predictors (**low variance**)
+
+* Need to find a compromise that leads to the "best" regression equation
+
+* It is the analyst's responsibility to modify the predictors to introduce nonlinear dependencies and interaction effects
+
+  - Typically a tedious trial and error process
+  
+  - Also need to make sure model assumptions are reasonably valid
+
+A **parsimonious model** is the simplest model with the least assumptions and variables, but with the greatest explanatory power!
+
+
+## The mirage of variable selection {.smaller}
+
+* Variable selection/ranking is an incredibly challenging problem!
+
+  - **All methods** have their shortcomings (especially the ones discussed in this class)
+
+* For variable selection in general:
+
+  - $Pr\left(\text{selecting the "right" variables} | \text{data}\right) = 0$
+
+  - "Corollary" to [Box's famous quote](https://en.wikipedia.org/wiki/All_models_are_wrong):
+
+    * All ~~models~~ subsets of variables are wrong, but some are useful
+
+* My current [favorite approach](https://jds-online.org/journal/JDS/article/1250/info) is based on the [GUIDE](https://pages.stat.wisc.edu/~loh/guide.html#:~:text=GUIDE%20is%20a%20multi%2Dpurpose,Unbiased%2C%20Interaction%20Detection%20and%20Estimation.) decision tree algorithm
+
+  - GUIDE stands for generalized, unbiased, interaction detection and estimation
+  
+  - This approach use *chi-square* tests to measure the "associative importance" of each predictor
+  
+  - LOTS OF BELLS AND WHISTLES! (e.g., thresholding)
+
+
+## Example: MLB salary data {.smaller}
+
+Results from a default GUIDE variable importance scoring run:
+
+|Variable	  | Importance | Threshold |
+|:----------|:----------:|:---------:|
+| CAtBat	  | 9.5240	   | H         |
+| CHits	    | 8.8790	   | H         |
+| CRuns	    | 8.7870	   | H         |
+| CRBI	    | 8.7040	   | H         |
+| CWalks	  | 7.0580	   | H         |
+| Years	    | 6.3920	   | H         |
+| CHmRun	  | 5.0760	   | H         |
+| Hits	    | 4.9180	   | H         |
+| RBI	      | 3.8780	   | H         |
+| AtBat	    | 3.6580	   | H         |
+| Runs	    | 3.1810	   | H         |
+| Walks	    | 2.7750	   | H         |
+| HmRun	    | 2.0970	   | H         |
+| PutOuts	  | 1.3050	   | L         |
+| Errors	  | 0.6955	   | U         |
+| NewLeague | 0.5325	   | U         |
+| Division	| 0.5253	   | U         |
+| League	  | 0.3582	   | U         |
+| Assists	  | 0.1457	   | U         |
+
+
+## [Under/overfitting](https://en.wikipedia.org/wiki/Overfitting) (in a single picture)
+
+```{r}
+#| echo: false
+# Simulate some data 
+n <- 100
+set.seed(8451)
+x <- runif(n, min = -2, max = 2)
+df <- data.frame(x = x, y = rnorm(n, mean = 1 + 2*x + x^2, sd = 1))
+p <- ggplot(df, aes(x, y)) + 
+  geom_point(alpha = 0.5) 
+p1 <- p + 
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  ggtitle("Under fitting")
+p2 <- p + 
+  # geom_smooth(method = "lm", formula = y ~ poly(x, degree = 10), se = FALSE) +
+  geom_smooth(method = "loess", span = 0.075, se = FALSE) +
+  ggtitle("Over fitting")
+p3 <- p + 
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2), se = FALSE) +
+  ggtitle("Just right?")
+gridExtra::grid.arrange(p1, p2, p3, nrow = 1)
+```
+
+
+# All-subsets regression
+
+
+## All-subsets regression {.smaller}
+
+* The most direct approach is called *all-subsets* or *best-subsets* regression: 
+
+  - Compute the least squares fit **for all possible subsets** and then choose between them based on some criterion that balances performance with model size
+
+* With $p$ predictors, there are $2 ^ p - 1$ possible models!
+
+* It is often impossible to examine all possible models; for example, with 40 potential predictors, there are **over a billion models!** Instead we often rely on automated approaches that search through a subset of all possible models. We'll discuss common approaches referred as [stepwise regression](https://en.wikipedia.org/wiki/Stepwise_regression) techniques:
+
+  - Forward selection
+  
+  - Backward elimination
+  
+  - A hybrid of both forward selection and backward elimination
+
+
+---
+
+```{r}
+#| echo: false
+x <- 1:10
+d <- data.frame(x = x, y = (2 ^ x - 1) / 1000)
+ggplot(d, aes(x, y)) + 
+  geom_line() +
+  geom_point(color = "dodgerblue2", size = 2) +
+  scale_x_continuous(breaks = 0:10) +
+  labs(x = "Number of predictors", y = "Number of possible subsets (thousands)")
+```
+
+
+## Selecting an "optimal" model
+
+Some criteria for helping to select an "optimal" model in the path of models produced by automatic search procedures:
+
+* [Adjusted R-squared ($R_{adj}^2$)](https://en.wikipedia.org/wiki/Coefficient_of_determination#Adjusted_R2) (larger is better)
+
+* [Mean square error (MSE)](https://en.wikipedia.org/wiki/Mean_squared_error) or [root mean square error (RMSE)](https://en.wikipedia.org/wiki/Root-mean-square_deviation) (smaller is better)
+
+* [Mallow's $C_p$](https://en.wikipedia.org/wiki/Mallows%27s_Cp) (smaller is better)
+
+* [Akaike information criterion (AIC)](https://en.wikipedia.org/wiki/Akaike_information_criterion) (smaller is better)
+
+* [Bayesian information criterion (BIC)](https://en.wikipedia.org/wiki/Bayesian_information_criterion) (smaller is better)
+
+* [Predicted residual sum of squares (PRESS)](https://en.wikipedia.org/wiki/PRESS_statistic) (smaller is better)
+
+
+## MSE and $R_{adj}^2$
+
+Recall that $MSE = \frac{1}{n - k}\sum_{i=1}^n\left(y_i - \hat{y}_i\right)^2$ and $R_{adj}^2 = 1 - \frac{MSE}{SST / \left(n - 1\right)}$
+
+* Both MSE (and hence RMSE) and $R_{adj}^2$ take the number of coefficients, $k$, into account
+
+* Unlike $R^2$, $R_{adj}^2$ increases **if and only if** MSE (or RMSE) decreases 
+
+* I prefer $R_{adj}^2$ since it is more interpretable by itself (e.g., as the fraction of variance in the response explained by the predictors in the current model)
+
+
+## Information criteria (IC)
+
+General formula: $IC = -2 \log\left(L\right) + kp$
+
+* AIC and BIC correspond to $k = 2$ and $k = \ln\left(n\right)$, respectively 
+
+* For a fixed sample size $n$, the first term decreases as $p$, the number of coefficients, increases
+    
+* For a fixed sample size $n$, the second term increases with $p$
+    
+* BIC penalizes large $p$ more than AIC whenever $n \ge 8$ (i.e., BIC tends to favor more *parsimonious* models)
+
+* R functions: `AIC()`, `BIC()`, and `extractAIC()`
+
+
+## Predicted residual sum of squares
+
+$PRESS = \sum_{i = 1}^n \left(y_i - \hat{y}_{\left(i\right)}\right)^2 = \sum_{i = 1}^n e_{\left(i\right)}^2 = \sum_{i = 1}^n\left(\frac{e_i}{1 - h_i}\right)^2$
+
+* Summarizes the prediction errors across all observations (similar to SSE)
+
+* Models with smaller PRESS statistics are considered good candidate models (in the sense that they have smaller prediction errors)
+
+* Equivalent to [leave on out cross-validation (LOOCV)](https://en.wikipedia.org/wiki/Cross-validation_(statistics)#Leave-one-out_cross-validation)
+
+* Can be computed at the cost of a single fit!
+
+* R has no built-in `PRESS()` function, so we'll write our own!
+
+
+## Example: Hald's cement data
+
+```{r}
+# Load the Hald cement data
+data(cement, package = "SMPracticals")
+cement  # see ?cement for details
+```
+
+How many subsets are possible?
+
+. . .
+
+$2^4 - 1 = 15$
+
+
+## Example: Hald's cement data
+
+```{r}
+#| echo: false
+GGally::ggpairs(cement, mapping = aes(alpha = 0.5))
+```
+
+
+## Example: Hald's cement data
+
+```{r}
+# Load required packages
+library(leaps)
+
+# All subsets regression (main effects only)
+a1 <- regsubsets(y ~ ., data = cement,  # see ?leaps::regsubsets
+                 nbest = 6, nvmax = 4)  # why 6 and 4 here?
+a1
+```
+
+
+## Example: Hald's cement data
+
+```{r}
+#| echo: false
+#| par: false
+#| fig.width: 6
+#| fig.asp: 0.9
+#| out.width: "80%"
+plot(a1, scale = "adjr2")
+```
+
+
+## Example: Hald's cement data
+
+```{r}
+#| echo: false
+# Gather results
+res1 <- data.frame(
+  "nvar" = apply(summary(a1)$which, 1, FUN = function(x) sum(x) - 1),
+  "bic" = summary(a1)$bic,
+  "adjr2" = summary(a1)$adjr2
+)
+
+# Plot results
+p1 <- ggplot(res1, aes(x = nvar, y = bic)) +
+  geom_point(alpha = 0.5, size = 2, color = "darkred") +
+  stat_summary(fun.y = min, geom = "line", alpha = 0.5, linetype = "dashed") +
+  labs(x = "Number of predictors", y = "BIC")
+p2 <- ggplot(res1, aes(x = nvar, y = adjr2)) +
+  geom_point(alpha = 0.5, size = 2, color = "darkgreen") +
+  stat_summary(fun.y = max, geom = "line", alpha = 0.5, linetype = "dashed") +
+  labs(x = "Number of predictors", y = "Adjusted R-squared")
+gridExtra::grid.arrange(p1, p2, nrow = 2)
+```
+
+
+## Example: Hald's cement data
+
+```{r}
+# Summarize best model according to BIC
+summary(best1 <- lm(y ~ x1 + x2, data = cement))
+```
+
+
+## Example: Hald's cement data
+
+```{r}
+#| par: true
+# Plot residuals from best model
+par(mfrow = c(1, 2))
+plot(best1, which = 1:2)
+```
+
+
+## What about interaction terms?
+
+```{r}
+nsubsets <- function(x, max.int = 1) {
+  if (max.int > x) {
+    stop("`max.int` cannot be larger than ", 
+         x, ".", call. = FALSE)
+  }
+  x <- as.integer(x)
+  max.int <- as.integer(max.int)
+  res <- 0
+  for (i in seq_len(max.int)) {
+    res <- res + choose(n = x, k = i)
+  }
+  2 ^ res - 1
+}
+
+# How many possible subsets if we allow for interactions?
+sapply(1:4, FUN = function(x) nsubsets(4, max.int = x))
+```
+
+
+## Example: Hald's cement data
+
+```{r}
+# All subsets regression (with two-way interactions)
+a2 <- regsubsets(y ~ .^2, data = cement, 
+                 nbest = 40, nvmax = 1000)
+a2
+```
+
+
+## Example: Hald's cement data
+
+```{r}
+#| echo: false
+# Gather results
+res2 <- data.frame(
+  "nvar" = apply(summary(a2)$which, 1, FUN = function(x) sum(x) - 1),
+  "bic" = summary(a2)$bic,
+  "adjr2" = summary(a2)$adjr2
+)
+# Plot results
+p3 <- ggplot(res2, aes(x = nvar, y = bic)) +
+  geom_point(alpha = 0.5, size = 2, color = "darkred") +
+  stat_summary(fun.y = min, geom = "line", alpha = 0.5, linetype = "dashed") +
+  scale_x_continuous(breaks = 1:10) +
+  labs(x = "Number of predictors", y = "BIC")
+p4 <- ggplot(res2, aes(x = nvar, y = adjr2)) +
+  geom_point(alpha = 0.5, size = 2, color = "darkgreen") +
+  stat_summary(fun.y = max, geom = "line", alpha = 0.5, linetype = "dashed") +
+  scale_x_continuous(breaks = 1:10) +
+  labs(x = "Number of predictors", y = "Adjusted R-squared")
+gridExtra::grid.arrange(p3, p4, nrow = 2)
+```
+
+
+## Example: Hald's cement data
+
+Coefficient table for "best" model based on BIC that allows for up to two-way interaction effects:
+
+```{r}
+#| echo: false
+# Summarize best model according to BIC
+id <- which.min(summary(a2)$bic)
+trms <- names(which(summary(a2)$which[id, ])[-1L])
+form <- as.formula(paste("y ~", paste(trms, collapse = "+")))
+round(summary(lm(form, data = cement))$coefficients, digits = 3)
+```
+
+What's the maximum number of terms we could have if we allowed all possible interaction effects (e.g., the four-way interaction effect $x_1 x_2 x_3 x_4$)?
+
+
+# Forward selection and/or backward elimination
+
+
+## The hierarchy principle
+
+If we include an interaction in a model, we should also include all the lower level effects involved in the interaction, even if the *p*-values associated with their coefficients are not significant!
+
+<br><br>
+
+`r emo::ji("warning")` all-subsets regression does not respect this principle `r emo::ji("warning")`
+
+
+## Forward selection (FS) {.smaller}
+
+Rather than search through all possible subsets (which becomes infeasible
+for $p$ much larger than 40), we can seek a good path through them!
+
+1. Begin with the **null model**  (i.e., an intercept-only model)
+
+2. Fit $p$ simple linear regressions and add to the null model the predictor that gives the **"biggest improvement"**
+
+3. Add to that model the predictor that results in the **"biggest improvement"** among all two-predictor models
+
+4. Continue until some stopping rule is satisfied, for example when all remaining variables have a *p*-value above some threshold
+
+**Note:** FS can still be used when $n < k$, where $k$ is the number of coefficients to be estimated (i.e., wide data)!
+
+
+## Backward elimination (BE)
+
+Pretty much the opposite of FS (i.e., start with a full model and work backwards)
+
+1. Start with all candidate predictors in the model (including interactions)
+
+2. Fit $p - 1$ simple linear regressions and remove from the model the predictor that has the "least impact on the fit"
+
+
+3. The new $\left(p - 1\right)$-predictor model is fit, and the predictor with the **"least impact on the fit"** is removed
+
+4. Continue until some stopping rule is satisfied, for example when all remaining variables have a *p*-value above some threshold
+
+**Note:** BE requires that $n \ge k$, where $k$ is the number of coefficients to be estimated
+
+
+## Model selection in R
+
+* Base R's `step()` function and [MASS](https://cran.r-project.org/package=MASS)'s `stepAIC()` function can be used to choose a model by AIC (or BIC) in a stepwise fashion (i.e., FS, BE, or a hybrid of both)
+
+* [leaps](https://cran.r-project.org/package=leaps)'s `regsubsets()` function can be used to choose a model using an exhaustive search (i.e., all-subsets), a stepwise algorithm (i.e., FS, BE, or a hybrid of both), or *sequential replacement*
+
+
+## Example: MLB salary data
+
+```{r}
+mlb <- ISLR2::Hitters
+mlb <- mlb[!is.na(mlb$Salary), ]  # rm rows w/ missing response values
+str(mlb)
+
+# Use FS to select a model
+mlb.fs <- regsubsets(Salary ~ ., data = mlb, nvmax = 19, method = "forward")
+mlb.be <- regsubsets(Salary ~ ., data = mlb, nvmax = 19, method = "backward")
+```
+
+
+## Example: MLB salary data
+
+```{r}
+#| echo: false
+#| par: false
+#| fig.width: 6
+#| fig.asp: 0.9
+#| out.width: "80%"
+plot(mlb.fs, scale = "bic")
+```
+
+
+## Example: MLB salary data
+
+```{r}
+#| echo: false
+#| par: false
+#| fig.width: 6
+#| fig.asp: 0.9
+#| out.width: "80%"
+plot(mlb.be, scale = "bic")
+```
+
+
+## Example: MLB salary data
+
+Forward selection:
+
+```{r}
+coef(mlb.fs, id = 1)  # best model with a single predictor
+coef(mlb.fs, id = 2)  # best model with two predictors
+```
+
+Backward elimination: 
+
+```{r}
+coef(mlb.be, id = 1)  # best model with a single predictor
+coef(mlb.be, id = 2)  # best model with two predictors
+```
+
+
+## Example: MLB salary data `r emo::ji('warning')`
+
+```{r}
+summary(lm(Salary ~ AtBat + Hits + Walks + CRBI + Division + PutOuts, 
+           data = mlb))
+```
+
+Traditional inference is **NOT VALID** here!! 
+
+::: aside
+Check out the [selectiveinference](https://cran.r-project.org/package=selectiveInference) package for some solutions
+:::
+
+
+## Some cautions {.smaller}
+
+* No variable selection technique guarantees to find the "best" regression equation for the data set of interest
+
+* Different variable selection techniques may very well give different results (and they often do!)
+
+* Complete reliance on the algorithm for results is to be avoided (**Why?** `r emo::ji("thinking")`)
+
+* Other valuable information such as experience with, and knowledge of the data and problem, should be utilized whenever possible!!
+
+* Model selection techniques are **high variance procedures**
+
+  - models identified by stepwise methods have an inflated risk of capitalizing on chance features of the data and will often not generalize to new data
+
+* And many more...
+
+
+# Modern alternatives
+
+
+## Modern alternatives
+
+* [Regularized regression](https://en.wikipedia.org/wiki/Regularized_least_squares) 
+
+  - The *elastic-net* algorithm combines both [ridge regression](https://en.wikipedia.org/wiki/Ridge_regression) and the  [LASSO](https://en.wikipedia.org/wiki/Lasso_(statistics)); the latter can perform variable selection
+
+* [Multivariate adaptive regression splines (MARS)](https://en.wikipedia.org/wiki/Multivariate_adaptive_regression_spline) 
+
+  - Think of MARS as automatic (albeit structured) multiple linear regression 
+
+* [Tree-based methods](https://www.amazon.com/Tree-Based-Methods-Statistical-Learning-Chapman/dp/0367532468) (like [GUIDE](https://pages.stat.wisc.edu/~loh/guide.html#:~:text=GUIDE%20is%20a%20multi%2Dpurpose,Unbiased%2C%20Interaction%20Detection%20and%20Estimation.), [gradient tree boosting](https://en.wikipedia.org/wiki/Gradient_boosting), and [random forests](https://en.wikipedia.org/wiki/Random_forest))
+
+  - Check out [this paper](https://jds-online.org/journal/JDS/article/1250/info) for a promising approach to variable scoring/selection using GUIDE
+
+  

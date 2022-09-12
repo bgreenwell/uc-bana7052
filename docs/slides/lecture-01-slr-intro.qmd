@@ -1,0 +1,787 @@
+---
+title: "Association and simple linear regression"
+author: "Brandon M. Greenwell"
+institute: "University of Cincinnati"
+format: 
+  revealjs:
+    logo: images/uc.png
+    chalkboard: true
+    slide-number: true
+    scrollable: true
+    auto-play-media: false
+    footer: "BANA 7052: Applied Linear Regression"
+---
+
+
+## Main topics
+
+-   Association and correlation
+-   Simple linear regression (SLR) models
+-   Least squares (LS) estimation
+-   Fitting SLR models in R with the `lm()` function
+-   Fitted values and residuals
+-   Maximum likelihood estimation
+
+```{r, setup}
+library(knitr)
+
+opts_chunk$set(
+  echo = TRUE,
+  dpi = 300,     
+  #fig.retina = 3,  
+  fig.align = "center",
+  fig.width = 6,
+  fig.asp = 0.618,
+  out.width = "100%",
+ # size = "small",
+  message = FALSE,
+  warning = FALSE,
+  error = FALSE
+)
+
+knit_hooks$set(
+  par = function(before, options, envir) {
+    if (before && options$fig.show != "none") {
+      par(
+        mar = c(4, 4, 0.1, 0.1), 
+        cex.lab = 0.95, 
+        cex.axis = 0.8,  # was 0.9
+        mgp = c(2, 0.7, 0), 
+        tcl = -0.3, 
+        las = 1
+      )
+      if (is.list(options$par)) {
+        do.call(par, options$par)
+      }
+    }
+  }
+)
+```
+
+
+## Required packages and setup
+
+```{r}
+pkgs <- c(
+  "AmesHousing",  # for Ames, Iowa housing data set
+  "ggplot2",      # for fancy graphics
+  "gridExtra",    # for displaying multiple (gg)plots in the same graph
+  "HistData",     # for Galton data set
+  "investr"       # for crystal weight and arsenic data sets
+)
+install <- setdiff(pkgs, installed.packages()[, "Package"])
+install.packages(install)
+
+library(ggplot2)
+
+theme_set(theme_bw())  # set ggplot2 theme for the lecture
+```
+
+
+## Learning more
+
+:::: {.columns}
+
+::: {.column width="50%"}
+![](images/rcar-book.jpeg){width=60%}
+
+:::
+
+::: {.column width="50%"}
+![](images/rmse-book.webp){width=60%}
+:::
+
+::::
+
+Visit Frank Harrell's Statistical Thinking site at https://www.fharrell.com/
+
+
+# Association and correlation
+
+
+## Statistical relationships
+
+```{r, par=TRUE}
+#| code-fold: true
+# Simulate data from different SLR models
+set.seed(101)  # for reproducibility
+x <- seq(from = 0, to = 4, length = 100)
+y <- cbind(
+  1 + x + rnorm(length(x)),  # linear
+  1 + (x - 2)^2 + rnorm(length(x)),  # quadratic
+  1 + log(x + 0.1) + rnorm(length(x), sd = 0.3),  # logarithmic
+  1 + rnorm(length(x))  # no association
+)
+
+# Scatterplot of X vs. each Y in a 2-by-2 grid
+par(mfrow = c(2, 2))
+for (i in 1:4) {
+  plot(x, y[, i], col = adjustcolor("cornflowerblue", alpha.f = 0.7),
+       pch = 19, xlab = "X", ylab = "Y")
+}
+```
+
+
+## Are $X$ and $Y$ correlated?
+
+```{r, par=TRUE}
+#| code-fold: true
+plot(x, y[, 3], col = adjustcolor("cornflowerblue", alpha.f = 0.7),
+     pch = 19, xlab = "X", ylab = "Y")
+r <- round(cor(x, y[, 3]), digits = 3)
+legend("bottomright", legend = paste0("r = ", r), bty = "n", inset = 0.01)
+```
+
+
+## Pearson's correlation coefficient 
+
+* The (Pearson) correlation between two random variables $X$ and $Y$ is given by
+
+$$Cor\left(X, Y\right) = \rho = \frac{Cov\left(X,Y\right)}{\sigma_X\sigma_Y}$$
+
+* Given a sample of $n$ pairs $\left\{\left(x_i, y_i\right)\right\}_{i=1}^n$, we estimate $\rho$ with $r = S_{xy} / \sqrt{S_{xx}S_{yy}}$, where, for example, $$S_{xx} = \sum_{i=1}^n\left(x_i - \bar{x}\right)^2 \text{ and } S_{xy} = \sum_{i=1}^n\left(x_i - \bar{x}\right)\left(y_i - \bar{y}\right)$$
+
+
+## Pearson's correlation coefficient
+
+* Range: $-1 \le r \le 1$
+
+* What does it measure?
+
+  - Pearson's correlation coefficient is a **unitless** measure of the strength of the **linear** relationship between two variables
+
+* Other useful correlation measures also exist:
+
+  - Spearman's rank correlation (or Spearman's $\rho$) only assumes a *monotonic relationship* between $X$ and $Y$
+
+    * Equivalent to computing $r$ on the *ranks* of $X$ and $Y$
+
+
+## Pearson's correlation coefficient
+
+* It is common to test the hypothesis $H_0: \rho = 0$ vs. $H_1: \rho \ne 0$
+
+  - Rejecting $H_0$ is only evidence that $\rho$ is **not exactly zero** (NOT VERY USEFUL, OR INTERESTING)
+
+  - A $p$-value **does not measure the magnitude/strength of the (linear) association**
+
+  - Sample size affects the $p$-value! `r emo::ji("scream")`
+
+
+## Pearson's correlation coefficient
+
+::: columns
+::: {.column width="50%"}
+```{r}
+set.seed(1050)  # for reproducibility
+n <- 100
+x <- rnorm(n)
+y <- 1 + 0.001*x + rnorm(n)
+cor.test(x, y)
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+set.seed(1051)  # for reproducibility
+n <- 10000000  # n = ten million
+x <- rnorm(n)
+y <- 1 + 0.001*x + rnorm(n)
+cor.test(x, y)
+```
+:::
+:::
+
+
+
+The real question is, are $X$ and $Y$ *practically* uncorrelated?
+
+
+## Pearson's correlation coefficient
+
+```{r}
+set.seed(1051)  # for reproducibility
+n <- 1000 
+x <- rnorm(n)
+y <- 1 + 0.001*x + rnorm(n)
+plot(x, y, asp = 1, col = adjustcolor("black", alpha.f = 0.3))
+```
+
+
+## Correlation is not causation
+
+<iframe width="800" height="450" src="https://www.youtube.com/embed/ntnalq-2nNU" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
+
+</iframe>
+
+------------------------------------------------------------------------
+
+::: r-fit-text
+[Fun with spurious correlations](http://www.tylervigen.com/spurious-correlations){preview-link="true" style="text-align: center"}
+:::
+
+![](images/spurious-correlation.png)
+
+------------------------------------------------------------------------
+
+<center>
+
+![](images/correlation-causation-comic.png){width="80%"}
+
+</center>
+
+If you get the joke, then you probably understand enough about correlation!
+
+
+# Simple linear regression (SLR) models
+
+
+---
+
+<center>
+
+![](images/all-models.jpeg){width="100%"}
+</center>
+
+Also, see [this talk](https://statmodeling.stat.columbia.edu/wp-content/uploads/2012/03/tarpey.pdf) by my old adviser, Thad Tarpey: "All Models are Right... most are useless."
+
+
+## Pearson's correlation vs. SLR
+
+* There's a formal relationship between Pearson's correlation coefficient ($\rho$) and the SLR model
+
+* "Simple" linear relationships can be described by an *intercept* and *slope*:
+
+  - $y = mx + b$ (algebra)
+  - $\mu = \beta_0 + \beta_1x$ (statistics)
+
+* "Simple" here means two variables, $x$ and $y$ (but $y$ can be linearly related to several variables)
+
+## Example: Ames housing
+
+Check out [this paper](http://jse.amstat.org/v19n3/decock.pdf) for useful background on the Ames housing data in regression 
+
+```{r}
+ames <- AmesHousing::make_ames()  # full (and clean) data set
+ames$Sale_Price <- ames$Sale_Price / 1000  # rescale response
+
+# We'll just look at a random sample of 500 observations/homes
+set.seed(750)  # for reproducibility
+ids <- sample.int(nrow(ames), size = 500)  # rows to select at random
+ames.trn <- ames[ids, ]  # training (or model building) data
+
+names(ames.trn)  # print column names
+```
+
+
+## Example: Ames housing
+
+```{r}
+head(cbind(ames.trn$Sale_Price, ames.trn$Gr_Liv_Area))
+cor.test(ames.trn$Sale_Price, y = ames.trn$Gr_Liv_Area)  # see ?cor.test
+```
+
+This doesn't tell us much about the nature of the linear relationship between `Gr_Liv_Area` and `Sale_Price`
+
+
+## Example: Ames housing
+
+Scatterplot using base R graphics
+
+```{r}
+plot(Sale_Price ~ Gr_Liv_Area, data = ames.trn, las = 1,
+     col = adjustcolor("black", alpha.f = 0.3), pch = 19)
+```
+
+
+## Example: Ames housing
+
+Scatterplot using **ggplot2** graphics
+
+```{r}
+ggplot(ames.trn, aes(x = Gr_Liv_Area, y = Sale_Price)) +
+  geom_point(size = 3, alpha = 0.3)
+```
+
+
+## Example: Ames housing
+
+Scatterplot using **lattice** graphics
+
+```{r}
+library(lattice)  # part of R by default
+
+xyplot(Sale_Price ~ Gr_Liv_Area, data = ames.trn, col = "black", 
+       alpha = 0.3, pch = 19)
+```
+
+
+## Example: Ames housing
+
+Which plot looks "better"?
+
+```{r}
+#| echo: false
+p1 <- ggplot(ames.trn, aes(x = Gr_Liv_Area, y = Sale_Price)) +
+  geom_point(size = 3, alpha = 0.25) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE)
+p2 <- ggplot(ames.trn, aes(x = Gr_Liv_Area, y = log(Sale_Price))) +
+  geom_point(size = 3, alpha = 0.25) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE)
+gridExtra::grid.arrange(p1, p2, nrow = 1)
+```
+
+
+## Historical origins
+
+* First developed by Sir Francis Galton in the later part of the 19-th century
+
+* Studied heights of parents and their children (next slide)
+
+* Noted that the heights of children with tall/short parents tended to "revert" or "regress" to the mean of the group
+
+* The term "regression" persists to this day (unfortunately)
+
+* See [this article](https://en.wikipedia.org/wiki/Regression_toward_the_mean#History) on "Regression toward the mean"
+
+
+
+
+## Historical origins
+
+```{r}
+data(Galton, package = "HistData")  # load data set from package
+dim(Galton)  # look at dimension
+head(Galton, n = 10)  # print first ten rows
+```
+
+Let's plot the data!
+
+
+## Historical origins
+
+```{r}
+#| echo: false
+# Scatterplot of child height vs. mid-parent height
+# calculated as (father + 1.08*mother)/2
+ggplot(Galton, aes(child, parent)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") + 
+  geom_point(data = as.data.frame(t(colMeans(Galton))), color = "red") +
+  labs(x = "Height of mid-parent (in)", y = "Height of child (in)")
+```
+
+$$H_{child} \approx 46.135 + 0.326 \times H_{midparent}$$ 
+
+
+## Statistical relationships
+
+```{r statistical-relationships}
+#| echo: false
+p1 <- ggplot(investr::crystal, aes(x = time, y = weight)) +
+  geom_point() +
+  labs(x = "Time (hours)", 
+       y = "Weight (grams)", 
+       title = "Crystal weight data")
+p2 <- ggplot(investr::arsenic, aes(x = actual, y = measured)) +
+  geom_point() +
+  labs(x = "True amount of arsenic", 
+       y = "Measured amount of arsenic",
+       title = "Arsenic concentration data")
+gridExtra::grid.arrange(p1, p2, nrow = 1)
+```
+
+
+## Examples of statistical relationships
+
+-   Simple linear regression: $Y = \beta_0 + \beta_1 X + \epsilon$
+
+-   Multiple linear regression: $Y = \beta_0 + \sum_{i=1}^p \beta_p X_p + \epsilon$
+
+-   Polynomial regression: $Y = \beta_0 + \sum_{i=1}^p \beta_p X^p + \epsilon$
+
+-   Logarithmic: $Y = \beta_0 + \beta_1 \log\left(X + 0.1\right) + \epsilon$
+
+-   Nonlinear regression: $Y = \frac{\beta_1 X}{\left(\beta_2 + X\right)} + \epsilon$
+
+-   Multiplicative: $Y = \beta X \epsilon$
+
+    -   $\log\left(Y\right) = \alpha + \log\left(X\right) + \log\left(\epsilon\right)$
+
+Assuming $\epsilon \sim D\left(\mu, \sigma\right)$
+
+
+## Simple linear regression (SLR)
+
+* Data: $\left\{\left(X_i, Y_i\right)\right\}_{i=1}^n$
+
+* Model: $Y_i = \beta_0 + \beta_1 X_i + \epsilon_i$
+
+  - $Y_i$ is a continuous response
+
+  - $X_i$ is a continuous predictor
+
+  - $\beta_0$ is the intercept of the regression line (also called the *bias term*)
+
+  - $\beta_1$ is the slope of the regression line
+
+  - $\epsilon_i \stackrel{iid}{\sim} D\left(0, \sigma^2\right)$
+
+
+## Assumptions about the errors $\epsilon_i$
+
+For $i$ and $j$ in $\left\{1, 2, \dots, n\right\}$ and $i \ne j$
+
+1)  $\quad E\left(\epsilon_i\right) = 0$
+
+2)  $\quad Var\left(\epsilon_i\right) = \sigma^2$ (homoscedacticity `r emo::ji("scream")`)
+
+3)  $\quad Cov\left(\epsilon_i, \epsilon_j\right) = 0$ (independence)
+
+
+
+Assumptions 1--3 can be summarized as $\epsilon_i \stackrel{iid}{\sim} D\left(0, \sigma^2\right)$, where $iid$ refers to [independent and identically distributed](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables).
+
+
+## Properties of SLR
+
+-   Simple linear regression: $Y_i = \beta_0 + \beta_1 X_i + \epsilon_i$
+
+    -   Assumes the model is **linear in the regression coefficients** $\beta_0$ and $\beta_1$
+
+-   The error term is a random variable; hence, $Y_i$ is also a random variable (**Why?** `r emo::ji("thinking")`)
+
+    -   What is $E\left(Y_i|X_i\right)$ and $Var\left(Y_i|X_i\right)$?
+
+-   $Cor\left(Y_i, Y_j\right) = 0$ $\forall i \ne j$ (**Why?** `r emo::ji("thinking")`)
+
+
+## SLR with normal errors
+
+$Y_i = \beta_0 + \beta_1 X_i + \epsilon_i, \quad i = 1, 2, \dots, n$
+
+where $\epsilon_i \stackrel{iid}{\sim} N\left(0, \sigma^2\right)$
+
+
+
+<br/> **OR, EQUIVALENTLY** <br/>
+
+$Y_i \stackrel{indep.}{\sim} N\left(\mu_i, \sigma^2\right), \quad i = 1, 2, \dots, n$
+
+where $\mu_i = \beta_0 + \beta_1 X_i$ is called the *linear predictor* (LP)
+
+
+## Interpretting the coefficients
+
+$\beta_0$ is the *y*-intercept (or *bias term*)
+
+-   It represents the mean response when $X = 0$; that is $\beta_0 = E\left(Y|X = 0\right)$
+
+-   In general, the intercept is of little practical interest (this is especially true in MLR or when zero is not a valid value of $X$)
+
+$\beta_1$ is the slope of the regression line
+
+-   The slope of a line represents a *rate of change*
+
+-   It represents the average change in $Y$ per one-unit increase in $X$
+
+
+---
+
+<center>
+
+![](images/slr-conditional-means.png){width="60%"}
+
+
+---
+
+```{r arsenic-conditional-distribution}
+#| echo: false
+# Scatterplot of arsenic data
+ggplot(investr::arsenic, aes(x = actual, y = measured)) + 
+  geom_point(alpha = 0.75) +
+  geom_smooth(method = "lm", se = FALSE, size = 0.5) + 
+  labs(x = "Actual amount (ppm)", y = "Measured amount (ppm)",
+       title = "Arsenic concentration data")
+```
+
+</center>
+
+
+# Least squares (LS) estimation
+
+
+## Estimating $\beta_0$ and $\beta_1$ {.smaller}
+
+-   Ideally, we want estimates of $\beta_0$ and $\beta_1$ that give us the "best fitting" line
+
+    -   But what is meant by "best fitting"?
+
+
+
+-   The most common approach is to use the method of *least squares* (LS) estimation
+
+-   The LS estimates of $\beta_0$ and $\beta_1$ minimize the residual sum of squares (RSS):
+
+$$SSE\left(\beta_0, \beta_1\right) = \sum_{i=1}^n\left[Y_i - \left(\beta_0 + \beta_1 X_i\right)\right]^2 = \sum_{i=1}^n\left(Y_i - \beta_0 - \beta_1 X_i\right)^2$$
+
+-   $Y_i - \left(\beta_0 + \beta_1 X_i\right) = \epsilon_i$ ($i = 1, 2, \dots, n$) are called the *residual errors* (or just [residuals]())
+
+-   Why minimize $SSE = \sum_{i=1}^n\epsilon_i^2$? Why not $\sum_{i=1}^n\left|\epsilon_i\right|$ or something more general like $\sum_{i=1}^n\psi\left(\epsilon_i\right)$?
+
+
+## Estimating $\beta_0$ and $\beta_1$
+
+Need to minimize (w.r.t $\beta_0$ and $\beta_1$) $$SSE\left(\beta_0, \beta_1\right) = \sum_{i=1}^n\left(Y_i - \beta_0 - \beta_1 X_i\right)^2$$
+
+
+
+* This process is called [*least squares* (LS) estimation](https://en.wikipedia.org/wiki/Least_squares)
+* In the SLR case, this can be done via (relatively) straightforward calculus
+* Beyond SLR, we need additional tools! ([We'll cover this in week 3]())
+
+
+## Minimizing SSE
+
+Need to solve a system of two^[One equation for each estimated parameter.] equations^[These are referred to as the *normal equations*.
+]:
+
+$$\begin{aligned}\frac{\partial SSE}{\partial \beta_0} &= -2n\left(\bar{Y} - \beta_0 - \beta_1\bar{X}\right) = 0 \\ \frac{\partial SSE}{\partial \beta_1} &= -2\left(\sum_{i=1}^nX_iY_i - n\beta_0\bar{X} - \beta_1\sum_{i=1}^nX_i^2\right) = 0\end{aligned}$$
+
+
+## The LS estimates of $\beta_0$ and $\beta_1$
+
+$$\begin{align}\hat{\beta}_1 &= \frac{\sum_{i=1}^n\left(X_i - \bar{X}\right)\left(Y_i - \bar{Y}\right)}{\sum_{i=1}^n\left(X_i - \bar{X}\right)^2} = \frac{S_{xy}}{ S_{xx}} = \sum_{i=1}^n a_iY_i \\ \hat{\beta}_0 &= \bar{Y} - \hat{\beta}_1 \bar{X} = \sum_{i=1}^n b_iY_i\end{align}$$
+
+
+
+* Don't bother trying to memorize these formulas!
+* For SLR, LS estimation results in the *best linear unbiased (BLU)* estimators of $\beta_0$ and $\beta_1$
+
+::: aside
+Here, $a_i$ and $b_i$ are weights (as a function of $X_i$, hence, not *random variables*)
+:::
+
+
+# Fitting SLR models in R with the `lm()` function
+
+
+## R's built-in lm() function
+
+* The `lm()` function can be used to fit the SLR model (or any LM for that matter!)
+
+  - In R, type `?lm` to view the associated documentation/help page
+
+* The statement `lm(y ~ x, data = df)` fits an SLR model by regressing `y` on `x`, where `y` and `x` are columns in some data frame named `df`
+
+* To suppress the intercept term, use `y ~ x - 1` (not often necessary)
+
+
+## Example: crystal weight data
+
+Let's fit an SLR model to the crystal weight data using `weight` as the response and `time` as the predictor and interpret the estimated coefficients.
+
+
+## Example: crystal weight data
+
+```{r your-turn-02-01}
+# Load the data (if not already loaded)
+data(crystal, package = "investr")
+
+# Fit an SLR model to the data
+fit <- lm(weight ~ time, data = crystal)
+print(fit)  # print a basic summary
+```
+
+
+## Example: crystal weight data
+
+```{r}
+summary(fit)  # print a more verbose summary
+```
+
+
+## Example: crystal weight data
+
+
+```{r}
+coef(fit)
+```
+
+* The average final weight of crystals increases by an estimated `r round(coef(fit)[2L], digits = 3)` grams for every one-hour increase in growth time
+
+* Does interpreting the intercept make sense in this problem?
+
+  - $E\left(\texttt{weight}|\texttt{time} = 0\right) = 0.001$
+
+
+# Fitted values and residuals
+
+
+## The fitted SLR model
+
+* The fitted model is given by $\hat{E}\left(Y|X=x\right) = \hat{\beta}_0 + \hat{\beta}_1 X$
+
+* We refer to $\hat{f}\left(x\right) = \hat{E}\left(Y|X=x\right)$ as the predicted value (or estimated mean response) at $X = x$
+
+* The fitted values: $\hat{Y}_i = \hat{\beta}_0 + \hat{\beta}_1 X_i, \quad i = 1, 2, \dots, n$ (these are just the predictions corresponding to the original $n$ observations)
+
+* Residuals: $r_i = Y_i - \hat{E}\left(Y_i|X_i=x_i\right)$
+
+  - The difference between the actual and predicted values (think of these as the observed errors)
+
+
+## The fitted SLR model
+
+```{r}
+#| code-fold: true
+# Residual plot
+ggplot(data = crystal, aes(x = time, y = weight)) +
+  geom_segment(aes(x = time, y = fitted(fit), 
+                   xend = time, yend = weight), 
+               alpha = 0.75, linetype = "solid") +
+  geom_point(size = 2, color = "cornflowerblue") +
+  geom_smooth(method = "lm", formula = y ~ x, 
+              se = FALSE, alpha = 0.5, color = "black") + 
+  geom_point(aes(x  = time, y = fitted(fit)), color = "darkorange", size = 2) +
+  theme_light() +
+  xlab("Time (hours)") +
+  ylab("Weight (grams)") +
+  ggtitle("Crystal weight data")
+```
+
+
+## The fitted SLR model
+
+In R, use `fitted(mymodel)` and `residuals(mymodel)` to obtain the fitted values and residuals, respectively
+
+```{r fitted-values}
+head(cbind(crystal, "fitted" = fitted(fit), "residuals" = residuals(fit)))
+
+# Sanity check
+head(crystal$weight - fitted(fit))  # compute residuals by hand
+```
+
+::: aside
+See `?fitted` and `?residuals` in R for usage details
+:::
+
+
+## Example: simulated data
+
+1. Simulate $Y_i \stackrel{indep.}{\sim} N\left(\mu = 1 + 2X_i, \sigma = 1.2\right)$ for $i = 1, 
+2, \dots, 30$, where $X_i \stackrel{iid}{\sim} U\left(0, 5\right)$. **Hint:** use `runif()` to simulate from a uniform distribution (see `?runif` for details).
+
+2. Fit an SLR model to the data and estimate the slope and intercept. Do the estimated slope and intercept match closely with the true values? What happens to the estimates if we generate the response from a $N\left(\mu = 1 + 2X_i, \sigma = 0.2\right)$ distribution instead?
+
+
+## Example: simulated data
+
+```{r slr-intro-your-turn-01, par=TRUE}
+#| code-fold: true
+# Simulate data
+set.seed(1105)  # for reproducibility
+x <- runif(30, min = 0, max = 5)
+y <- rnorm(30, mean = 1 + 2*x, sd = 1.2)
+# error <- rnorm(30, sd = 1.2)  # e ~ N(0, sigma = 1.2)
+# y <- 1 + 2*x + error          # equivalent
+
+# Simple scatterplot
+plot(x, y)
+```
+
+
+## Example: simulated data
+
+```{r slr-intro-your-turn-02, par=TRUE}
+#| code-fold: true
+# Fit (and print) an SLR model
+(fit <- lm(y ~ x))
+```
+
+
+## Example: simulated data
+
+```{r slr-intro-your-turn-03, par=TRUE}
+#| code-fold: true
+plot(x, y, pch = 19)
+abline(fit, col = "darkorange", lwd = 2)
+```
+
+
+## Properties of the residuals
+
+* $\sum_{i=1}^n e_i = 0$ (**Why?** `r emo::ji("thinking")`)
+
+* $\sum_{i=1}^n e_i^2$ is a minimum
+
+* $\sum_{i=1}^n X_ie_i = 0$
+
+* $\sum_{i=1}^n \hat{Y}_ie_i = 0$
+
+* The LS regression line passes through the point $\left(\bar{X}, \bar{Y}\right)$ (i.e., the center of the training data)
+
+
+# Maximum likelihood estimation
+
+
+## What are the unknown parameters of the SLR model?
+
+. . .
+
+* Assuming $\epsilon_i \stackrel{iid}{\sim} N\left(0, \sigma^2\right)$, we have an additional (unknown) parameter: $\sigma^2$
+
+* How do we estimate $\sigma^2$? 
+
+  - LS estimation only provides estimates for the slope and intercept
+
+
+## Maximum likelihood estimation
+
+Since $Y_i \stackrel{indep.}{\sim} N\left(\beta_0 + \beta_1X_i, \sigma^2\right)$, the *likelihood function* for the data (as a function of $\beta_0$, $\beta_1$, and $\sigma^2$) is given by 
+
+$$L\left(\beta_0, \beta_1, \sigma^2\right) = \prod_{i=1}^nf\left(Y_i; \beta_0 + \beta_1X_i, \sigma^2\right),$$ where $$f\left(Y_i; \beta_0 + \beta_1X_i, \sigma^2\right) = \frac{1}{\sigma\sqrt{2\pi}}\exp\left(-\frac{Y_i - \beta_0 - \beta_1 X_i}{2\sigma^2}\right)$$ is the *probability density function* (PDF) of a normal distribution with mean $\beta_0 + \beta_1X_i$ and variance $\sigma^2$.
+
+
+## Maximum likelihood estimation
+
+* Maximizing the likelihood is the same as maximizing the *log-likelihood* (**Why?** `r emo::ji("thinking")`) $$l = \log\left(L\right)$$
+
+* The full log-likelihood is given by 
+
+$$l = -\frac{n}{2}\log\left(2\pi\right) - \frac{n}{2}\log\left(\sigma^2\right) - \frac{1}{2\sigma^2}\sum_{i=1}^n\left(Y_i - \beta_0 - \beta_1X_i\right)^2$$
+
+
+## Maximum likelihood estimation
+
+Maximum likelihood (ML) estimates of $\beta_0$, $\beta_1$, and $\sigma^2$ can be found by equating the (partial) derivatives of $l$ to zero:
+
+* $\frac{\partial l}{\partial \beta_0} = \frac{1}{\sigma^2}\sum_{i=1}^n\left(Y_i - \beta_0 - \beta_1X_i\right)$
+    
+* $\frac{\partial l}{\partial \beta_1} = \frac{1}{\sigma^2}\sum_{i=1}^nX_i\left(Y_i - \beta_0 - \beta_1X_i\right)$
+    
+* $\frac{\partial l}{\partial \sigma^2} = -\frac{n}{2\sigma^2} + \frac{1}{\sigma^4}\sum_{i=1}^n\left(Y_i - \beta_0 - \beta_1X_i\right)^2$
+
+
+## Maximum likelihood (ML) estimation {.smaller}
+
+* As it turns out, the ML estimates of $\beta_0$ and $\beta_1$ (under our current assumptions) are the same as the corresponding LS estimates
+
+* ML estimation, however, also provides us with an estimate of the error variance $\sigma^2$ 
+$$\hat{\sigma}_{MLE}^2 = \frac{1}{n}\sum_{i=1}^n e_i^2$$
+
+
+
+* However, since $\hat{\sigma}_{MLE}^2$ is a biased estimate for the error variance, we use an adjusted estimate
+
+$$\hat{\sigma}^2 = \frac{1}{n-2}\sum_{i=1}^n e_i^2 = MSE$$
+
+
+## Example: rocket propellant data
+
+A rocket motor is manufactured by bonding an igniter propellant and a sustainer propellant together inside a metal housing. The shear strength of the bond ( $Y$ )
+between the two types of propellant is an important quality characteristic. It is suspected that the shear strength is related to the age ( $X$ ) of the batch of
+sustainer propellant. A total of $n = 20$ observations on shear strength (measured in psi) and age (measured in weeks) are available in the file `rocket.csv`. 
+
+Use [this R script](https://github.com/bgreenwell/uc-bana7052/blob/master/code/rocket.R) to analyze the data with simple linear regression.

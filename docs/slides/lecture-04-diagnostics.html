@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<script src="lecture-04-diagnostics_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lecture-04-diagnostics_files/libs/quarto-html/tabby.min.js"></script>
+<script src="lecture-04-diagnostics_files/libs/quarto-html/popper.min.js"></script>
+<script src="lecture-04-diagnostics_files/libs/quarto-html/tippy.umd.min.js"></script>
+<link href="lecture-04-diagnostics_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lecture-04-diagnostics_files/libs/quarto-html/quarto-html.min.css" rel="stylesheet">
+<link href="lecture-04-diagnostics_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles"><meta charset="utf-8">
+  <meta name="generator" content="quarto-0.9.565">
+
+  <meta name="author" content="Brandon M. Greenwell">
+  <title>Residual Diagnostics and Leverage</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+  <link rel="stylesheet" href="lecture-04-diagnostics_files/libs/revealjs/dist/reset.css">
+  <link rel="stylesheet" href="lecture-04-diagnostics_files/libs/revealjs/dist/reveal.css">
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      { color: #003b4f; background-color: #f1f3f5; }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span { color: #003b4f; } /* Normal */
+    code span.al { color: #ad0000; } /* Alert */
+    code span.an { color: #5e5e5e; } /* Annotation */
+    code span.at { color: #657422; } /* Attribute */
+    code span.bn { color: #ad0000; } /* BaseN */
+    code span.bu { } /* BuiltIn */
+    code span.cf { color: #003b4f; } /* ControlFlow */
+    code span.ch { color: #20794d; } /* Char */
+    code span.cn { color: #8f5902; } /* Constant */
+    code span.co { color: #5e5e5e; } /* Comment */
+    code span.cv { color: #5e5e5e; font-style: italic; } /* CommentVar */
+    code span.do { color: #5e5e5e; font-style: italic; } /* Documentation */
+    code span.dt { color: #ad0000; } /* DataType */
+    code span.dv { color: #ad0000; } /* DecVal */
+    code span.er { color: #ad0000; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #ad0000; } /* Float */
+    code span.fu { color: #4758ab; } /* Function */
+    code span.im { color: #00769e; } /* Import */
+    code span.in { color: #5e5e5e; } /* Information */
+    code span.kw { color: #003b4f; } /* Keyword */
+    code span.op { color: #5e5e5e; } /* Operator */
+    code span.ot { color: #003b4f; } /* Other */
+    code span.pp { color: #ad0000; } /* Preprocessor */
+    code span.sc { color: #5e5e5e; } /* SpecialChar */
+    code span.ss { color: #20794d; } /* SpecialString */
+    code span.st { color: #20794d; } /* String */
+    code span.va { color: #111111; } /* Variable */
+    code span.vs { color: #20794d; } /* VerbatimString */
+    code span.wa { color: #5e5e5e; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="lecture-04-diagnostics_files/libs/revealjs/dist/theme/quarto.css" id="theme">
+  <link href="lecture-04-diagnostics_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.css" rel="stylesheet">
+  <link href="lecture-04-diagnostics_files/libs/revealjs/plugin/reveal-menu/menu.css" rel="stylesheet">
+  <link href="lecture-04-diagnostics_files/libs/revealjs/plugin/reveal-menu/quarto-menu.css" rel="stylesheet">
+  <link href="lecture-04-diagnostics_files/libs/revealjs/plugin/reveal-chalkboard/font-awesome/css/all.css" rel="stylesheet">
+  <link href="lecture-04-diagnostics_files/libs/revealjs/plugin/reveal-chalkboard/style.css" rel="stylesheet">
+  <link href="lecture-04-diagnostics_files/libs/revealjs/plugin/quarto-support/footer.css" rel="stylesheet">
+  <style type="text/css">
+
+  .callout {
+    margin-top: 1em;
+    margin-bottom: 1em;  
+    border-radius: .25rem;
+  }
+
+  .callout.callout-style-simple { 
+    padding: 0em 0.5em;
+    border-left: solid #acacac .3rem;
+    border-right: solid 1px silver;
+    border-top: solid 1px silver;
+    border-bottom: solid 1px silver;
+    display: flex;
+  }
+
+  .callout.callout-style-default {
+    border-left: solid #acacac .3rem;
+    border-right: solid 1px silver;
+    border-top: solid 1px silver;
+    border-bottom: solid 1px silver;
+  }
+
+  .callout .callout-body-container {
+    flex-grow: 1;
+  }
+
+  .callout.callout-style-simple .callout-body {
+    font-size: 1rem;
+    font-weight: 400;
+  }
+
+  .callout.callout-style-default .callout-body {
+    font-size: 0.9rem;
+    font-weight: 400;
+  }
+
+  .callout.callout-captioned.callout-style-simple .callout-body {
+    margin-top: 0.2em;
+  }
+
+  .callout:not(.callout-captioned) .callout-body {
+      display: flex;
+  }
+
+  .callout:not(.no-icon).callout-captioned.callout-style-simple .callout-content {
+    padding-left: 1.6em;
+  }
+
+  .callout.callout-captioned .callout-header {
+    padding-top: 0.2em;
+    margin-bottom: -0.2em;
+  }
+
+  .callout.callout-captioned .callout-caption  p {
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+  }
+    
+  .callout.callout-captioned.callout-style-simple .callout-content  p {
+    margin-top: 0;
+  }
+
+  .callout.callout-captioned.callout-style-default .callout-content  p {
+    margin-top: 0.7em;
+  }
+
+  .callout.callout-style-simple div.callout-caption {
+    border-bottom: none;
+    font-size: .9rem;
+    font-weight: 600;
+    opacity: 75%;
+  }
+
+  .callout.callout-style-default  div.callout-caption {
+    border-bottom: none;
+    font-weight: 600;
+    opacity: 85%;
+    font-size: 0.9rem;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+  }
+
+  .callout.callout-style-default div.callout-content {
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+  }
+
+  .callout.callout-style-simple .callout-icon::before {
+    height: 1rem;
+    width: 1rem;
+    display: inline-block;
+    content: "";
+    background-repeat: no-repeat;
+    background-size: 1rem 1rem;
+  }
+
+  .callout.callout-style-default .callout-icon::before {
+    height: 0.9rem;
+    width: 0.9rem;
+    display: inline-block;
+    content: "";
+    background-repeat: no-repeat;
+    background-size: 0.9rem 0.9rem;
+  }
+
+  .callout-caption {
+    display: flex
+  }
+    
+  .callout-icon::before {
+    margin-top: 1rem;
+    padding-right: .5rem;
+  }
+
+  .callout.no-icon::before {
+    display: none !important;
+  }
+
+  .callout.callout-captioned .callout-body > .callout-content > :last-child {
+    margin-bottom: 0.5rem;
+  }
+
+  .callout.callout-captioned .callout-icon::before {
+    margin-top: .5rem;
+    padding-right: .5rem;
+  }
+
+  .callout:not(.callout-captioned) .callout-icon::before {
+    margin-top: 1rem;
+    padding-right: .5rem;
+  }
+
+  /* Callout Types */
+
+  div.callout-note {
+    border-left-color: #4582ec !important;
+  }
+
+  div.callout-note .callout-icon::before {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAAEU0lEQVRYCcVXTWhcVRQ+586kSUMMxkyaElstCto2SIhitS5Ek8xUKV2poatCcVHtUlFQk8mbaaziwpWgglJwVaquitBOfhQXFlqlzSJpFSpIYyXNjBNiTCck7x2/8/LeNDOZxDuEkgOXe++553zfefee+/OYLOXFk3+1LLrRdiO81yNqZ6K9cG0P3MeFaMIQjXssE8Z1JzLO9ls20MBZX7oG8w9GxB0goaPrW5aNMp1yOZIa7Wv6o2ykpLtmAPs/vrG14Z+6d4jpbSKuhdcSyq9wGMPXjonwmESXrriLzFGOdDBLB8Y6MNYBu0dRokSygMA/mrun8MGFN3behm6VVAwg4WR3i6FvYK1T7MHo9BK7ydH+1uurECoouk5MPRyVSBrBHMYwVobG2aOXM07sWrn5qgB60rc6mcwIDJtQrnrEr44kmy+UO9r0u9O5/YbkS9juQckLed3DyW2XV/qWBBB3ptvI8EUY3I9p/67OW+g967TNr3Sotn3IuVlfMLVnsBwH4fsnebJvyGm5GeIUA3jljERmrv49SizPYuq+z7c2H/jlGC+Ghhupn/hcapqmcudB9jwJ/3jvnvu6vu5lVzF1fXyZuZZ7U8nRmVzytvT+H3kilYvH09mLWrQdwFSsFEsxFVs5fK7A0g8gMZjbif4ACpKbjv7gNGaD8bUrlk8x+KRflttr22JEMRUbTUwwDQScyzPgedQHZT0xnx7ujw2jfVfExwYHwOsDTjLdJ2ebmeQIlJ7neo41s/DrsL3kl+W2lWvAga0tR3zueGr6GL78M3ifH0rGXrBC2aAR8uYcIA5gwV8zIE8onoh8u0Fca/ciF7j1uOzEnqcIm59sEXoGc0+z6+H45V1CvAvHcD7THztu669cnp+L0okAeIc6zjbM/24LgGM1gZk7jnRu1aQWoU9sfUOuhrmtaPIO3YY1KLLWZaEO5TKUbMY5zx8W9UJ6elpLwKXbsaZ4EFl7B4bMtDv0iRipKoDQT2sNQI9b1utXFdYisi+wzZ/ri/1m7QfDgEuvgUUEIJPq3DhX/5DWNqIXDOweC2wvIR90Oq3lDpdMIgD2r0dXvGdsEW5H6x6HLRJYU7C69VefO1x8Gde1ZFSJLfWS1jbCnhtOPxmpfv2LXOA2Xk2tvnwKKPFuZ/oRmwBwqRQDcKNeVQkYcOjtWVBuM/JuYw5b6isojIkYxyYAFn5K7ZBF10fea52y8QltAg6jnMqNHFBmGkQ1j+U43HMi2xMar1Nv0zGsf1s8nUsmUtPOOrbFIR8bHFDMB5zL13Gmr/kGlCkUzedTzzmzsaJXhYawnA3UmARpiYj5ooJZiUoxFRtK3X6pgNPv+IZVPcnwbOl6f+aBaO1CNvPW9n9LmCp01nuSaTRF2YxHqZ8DYQT6WsXT+RD6eUztwYLZ8rM+rcPxamv1VQzFUkzFXvkiVrySGQgJNvXHJAxiU3/NwiC03rSf05VBaPtu/Z7/B8Yn/w7eguloAAAAAElFTkSuQmCC');
+  }
+
+  div.callout-note.callout-style-default .callout-caption {
+    background-color: #dae6fb
+  }
+
+  div.callout-important {
+    border-left-color: #d9534f !important;
+  }
+
+  div.callout-important .callout-icon::before {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAAEKklEQVRYCcVXTWhcVRS+575MJym48A+hSRFr00ySRQhURRfd2HYjk2SSTokuBCkU2o0LoSKKraKIBTcuFCoidGFD08nkBzdREbpQ1EDNIv8qSGMFUboImMSZd4/f9zJv8ibJMC8xJQfO3HPPPef7zrvvvnvviIkpC9nsw0UttFunbUhpFzFtarSd6WJkStVMw5xyVqYTvkwfzuf/5FgtkVoB0729j1rjXwThS7Vio+Mo6DNnvLfahoZ+i/o32lULuJ3NNiz7q6+pyAUkJaFF6JwaM2lUJlV0MlnQn5aTRbEu0SEqHUa0A4AdiGuB1kFXRfVyg5d87+Dg4DL6m2TLAub60ilj7A1Ec4odSAc8X95sHh7+ZRPCFo6Fnp7HfU/fBng/hi10CjCnWnJjsxvDNxWw0NfV6Rv5GgP3I3jGWXumdTD/3cbEOP2ZbOZp69yniG3FQ9z1jD7bnBu9Fc2tKGC2q+uAJOQHBDRiZX1x36o7fWBs7J9ownbtO+n0/qWkvW7UPIfc37WgT6ZGR++EOJyeQDSb9UB+DZ1G6DdLDzyS+b/kBCYGsYgJbSQHuThGKRcw5xdeQf8YdNHsc6ePXrlSYMBuSIAFTGAtQo+VuALo4BX83N190NWZWbynBjhOHsmNfFWLeL6v+ynsA58zDvvAC8j5PkbOcXCMg2PZFk3q8MjI7WAG/Dp9AwP7jdGBOOQkAvlFUB+irtm16I1Zw9YBcpGTGXYmk3kQIC/Cds55l+iMI3jqhjAuaoe+am2Jw5GT3Nbz3CkE12NavmzN5+erJW7046n/CH1RO/RVa8lBLozXk9uqykkGAyRXLWlLv5jyp4RFsG5vGVzpDLnIjTWgnRy2Rr+tDKvRc7Y8AyZq10jj8DqXdnIRNtFZb+t/ZRtXcDiVnzpqx8mPcDWxgARUqx0W1QB9MeUZiNrV4qP+Ehc+BpNgATsTX8ozYKL2NtFYAHc84fG7ndxUPr+AR/iQSns7uSUufAymwDOb2+NjK27lEFocm/EE2WpyIy/Hi66MWuMKJn8RvxIcj87IM5Vh9663ziW36kR0HNenXuxmfaD8JC7tfKbrhFr7LiZCrMjrzTeGx+PmkosrkNzW94ObzwocJ7A1HokLolY+AvkTiD/q1H0cN48c5EL8Crkttsa/AXQVDmutfyku0E7jShx49XqV3MFK8IryDhYVbj7Sj2P2eBxwcXoe8T8idsKKPRcnZw1b+slFTubwUwhktrfnAt7J++jwQtLZcm3sr9LQrjRzz6cfMv9aLvgmnAGvpoaGLxM4mAEaLV7iAzQ3oU0IvD5x9ix3yF2RAAuYAOO2f7PEFWCXZ4C9Pb2UsgDeVnFSpbFK7/IWu7TPTvBqzbGdCHOJQSxiEjt6IyZmxQyEJHv6xyQsYk//moVFsN2zP6fRImjfq7/n/wFDguUQFNEwugAAAABJRU5ErkJggg==');
+  }
+
+  div.callout-important.callout-style-default .callout-caption {
+    background-color: #f7dddc
+  }
+
+  div.callout-warning {
+    border-left-color: #f0ad4e !important;
+  }
+
+  div.callout-warning .callout-icon::before {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAAETklEQVRYCeVWW2gcVRg+58yaTUnizqbipZeX4uWhBEniBaoUX1Ioze52t7sRq6APio9V9MEaoWlVsFasRq0gltaAPuxms8lu0gcviE/FFOstVbSIxgcv6SU7EZqmdc7v9+9mJtNks51NTUH84ed889/PP+cmxP+d5FIbMJmNbpREu4WUkiTtCicKny0l1pIKmBzovF2S+hIJHX8iEu3hZJ5lNZGqyRrGSIQpq15AzF28jgpeY6yk6GVdrfFqdrD6Iw+QlB8g0YS2g7dyQmXM/IDhBhT0UCiRf59lfqmmDvzRt6kByV/m4JjtzuaujMUM2c5Z2d6JdKrRb3K2q6mA+oYVz8JnDdKPmmNthzkAk/lN63sYPgevrguc72aZX/L9C6x09GYyxBgCX4NlvyGUHOKELlm5rXeR1kchuChJt4SSwyddZRXgvwMGvYo4QSlk3/zkHD8UHxwVJA6zjZZqP8v8kK8OWLnIZtLyCAJagYC4rTGW/9Pqj92N/c+LUaAj27movwbi19tk/whRCIE7Q9vyI6yvRpftAKVTdUjOW40X3h5OXsKCdmFcx0xlLJoSuQngnrJe7Kcjm4OMq9FlC7CMmScQANuNvjfP3PjGXDBaUQmbp296S5L4DrpbrHN1T87ZVEZVCzg1FF0Ft+dKrlLukI+/c9ENo+TvlTDbYFvuKPtQ9+l052rXrgKoWkDAFnvh0wTOmYn8R5f4k/jN/fZiCM1tQx9jQQ4ANhqG4hiL0qIFTGViG9DKB7GYzgubnpofgYRwO+DFjh0Zin2m4b/97EDkXkc+f6xYAPX0KK2I/7fUQuwzuwo/L3AkcjugPNixC8cHf0FyPjWlItmLxWw4Ou9YsQCr5fijMGoD/zpdRy95HRysyXA74MWOnscpO4j2y3HAVisw85hX5+AFBRSHt4ShfLFkIMXTqyKFc46xdzQM6XbAi702a7sy04J0+feReMFKp5q9esYLCqAZYw/k14E/xcLLsFElaornTuJB0svMuJINy8xkIYuL+xPAlWRceH6+HX7THJ0djLUom46zREu7tTkxwmf/FdOZ/sh6Q8qvEAiHpm4PJ4a/doJe0gH1t+aHRgCzOvBvJedEK5OFE5jpm4AGP2a8Dxe3gGJ/pAutug9Gp6he92CsSsWBaEcxGx0FHytmIpuqGkOpldqNYQK8cSoXvd+xLxXADw0kf6UkJNFtdo5MOgaLjiQOQHcn+A6h5NuL2s0qsC2LOM75PcF3yr5STuBSAcGG+meA14K/CI21HcS4LBT6tv0QAh8Dr5l93AhZzG5ZJ4VxAqdZUEl9z7WJ4aN+svMvwHHL21UKTd1mqvChH7/Za5xzXBBKrUcB0TQ+Ulgkfbi/H/YT5EptrGzsEK7tR1B7ln9BBwckYfMiuSqklSznIuoIIOM42MQO+QnduCoFCI0bpkzjCjddHPN/F+2Yu+sd9bKNpVwHhbS3LluK/0zgfwD0xYI5dXuzlQAAAABJRU5ErkJggg==');
+  }
+
+  div.callout-warning.callout-style-default .callout-caption {
+    background-color: #fcefdc
+  }
+
+  div.callout-tip {
+    border-left-color: #02b875 !important;
+  }
+
+  div.callout-tip .callout-icon::before {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAADr0lEQVRYCe1XTWgTQRj9ZjZV8a9SPIkKgj8I1bMHsUWrqYLVg4Ue6v9BwZOxSYsIerFao7UiUryIqJcqgtpimhbBXoSCVxUFe9CTiogUrUp2Pt+3aUI2u5vdNh4dmMzOzHvvezuz8xNFM0mjnbXaNu1MvFWRXkXEyE6aYOYJpdW4IXuA4r0fo8qqSMDBU0v1HJUgVieAXxzCsdE/YJTdFcVIZQNMyhruOMJKXYFoLfIfIvVIMWdsrd+Rpd86ZmyzzjJmLStqRn0v8lzkb4rVIXvnpScOJuAn2ACC65FkPzEdEy4TPWRLJ2h7z4cArXzzaOdKlbOvKKX25Wl00jSnrwVxAg3o4dRxhO13RBSdNvH0xSARv3adTXbBdTf64IWO2vH0LT+cv4GR1DJt+DUItaQogeBX/chhbTBxEiZ6gftlDNXTrvT7co4ub5A6gp9HIcHvzTa46OS5fBeP87Qm0fQkr4FsYgVQ7Qg+ZayaDg9jhg1GkWj8RG6lkeSacrrHgDaxdoBiZPg+NXV/KifMuB6//JmYH4CntVEHy/keA6x4h4CU5oFy8GzrBS18cLJMXcljAKB6INjWsRcuZBWVaS3GDrqB7rdapVIeA+isQ57Eev9eCqzqOa81CY05VLd6SamW2wA2H3SiTbnbSxmzfp7WtKZkqy4mdyAlGx7ennghYf8voqp9cLSgKdqNfa6RdRsAAkPwRuJZNbpByn+RrJi1RXTwdi8RQF6ymDwGMAtZ6TVE+4uoKh+MYkcLsT0Hk8eAienbiGdjJHZTpmNjlbFJNKDVAp2fJlYju6IreQxQ08UJDNYdoLSl6AadO+fFuCQqVMB1NJwPm69T04Wv5WhfcWyfXQB+wXRs1pt+nCknRa0LVzSA/2B+a9+zQJadb7IyyV24YAxKp2Jqs3emZTuNnKxsah+uabKbMk7CbTgJx/zIgQYErIeTKRQ9yD9wxVof5YolPHqaWo7TD6tJlh7jQnK5z2n3+fGdggIOx2kaa2YI9QWarc5Ce1ipNWMKeSG4DysFF52KBmTNMmn5HqCFkwy34rDg05gDwgH3bBi+sgFhN/e8QvRn8kbamCOhgrZ9GJhFDgfcMHzFb6BAtjKpFhzTjwv1KCVuxHvCbsSiEz4CANnj84cwHdFXAbAOJ4LTSAawGWFn5tDhLMYz6nWeU2wJfIhmIJBefcd/A5FWQWGgrWzyORZ3Q6HuV+Jf0Bj+BTX69fm1zWgK7By1YTXchFDORywnfQ7GpzOo6S+qECrsx2ifVQAAAABJRU5ErkJggg==');
+  }
+
+  div.callout-tip.callout-style-default .callout-caption {
+    background-color: #ccf1e3
+  }
+
+  div.callout-caution {
+    border-left-color: #fd7e14 !important;
+  }
+
+  div.callout-caution .callout-icon::before {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAACV0lEQVRYCdVWzWoUQRCuqp2ICBLJXgITZL1EfQDBW/bkzUMUD7klD+ATSHBEfAIfQO+iXsWDxJsHL96EHAwhgzlkg8nBg25XWb0zIb0zs9muYYWkoKeru+vn664fBqElyZNuyh167NXJ8Ut8McjbmEraKHkd7uAnAFku+VWdb3reSmRV8PKSLfZ0Gjn3a6Xlcq9YGb6tADjn+lUfTXtVmaZ1KwBIvFI11rRXlWlatwIAAv2asaa9mlB9wwygiDX26qaw1yYPzFXg2N1GgG0FMF8Oj+VIx7E/03lHx8UhvYyNZLN7BwSPgekXXLribw7w5/c8EF+DBK5idvDVYtEEwMeYefjjLAdEyQ3M9nfOkgnPTEkYU+sxMq0BxNR6jExrAI31H1rzvLEfRIdgcv1XEdj6QTQAS2wtstEALLG1yEZ3QhH6oDX7ExBSFEkFINXH98NTrme5IOaaA7kIfiu2L8A3qhH9zRbukdCqdsA98TdElyeMe5BI8Rs2xHRIsoTSSVFfCFCWGPn9XHb4cdobRIWABNf0add9jakDjQJpJ1bTXOJXnnRXHRf+dNL1ZV1MBRCXhMbaHqGI1JkKIL7+i8uffuP6wVQAzO7+qVEbF6NbS0LJureYcWXUUhH66nLR5rYmva+2tjRFtojkM2aD76HEGAD3tPtKM309FJg5j/K682ywcWJ3PASCcycH/22u+Bh7Aa0ehM2Fu4z0SAE81HF9RkB21c5bEn4Dzw+/qNOyXr3DCTQDMBOdhi4nAgiFDGCinIa2owCEChUwD8qzd03PG+qdW/4fDzjUMcE1ZpIAAAAASUVORK5CYII=');
+  }
+
+  div.callout-caution.callout-style-default .callout-caption {
+    background-color: #ffe5d0
+  }
+
+  </style>
+  <style type="text/css">
+    .reveal div.sourceCode {
+      margin: 0;
+      overflow: auto;
+    }
+    .reveal div.hanging-indent {
+      margin-left: 1em;
+      text-indent: -1em;
+    }
+    .reveal .slide:not(.center) {
+      height: 100%;
+      overflow-y: auto;
+    }
+    .reveal .slide.scrollable {
+      overflow-y: auto;
+    }
+    .reveal .footnotes {
+      height: 100%;
+      overflow-y: auto;
+    }
+    .reveal .slide .absolute {
+      position: absolute;
+      display: block;
+    }
+    .reveal .footnotes ol {
+      counter-reset: ol;
+      list-style-type: none; 
+      margin-left: 0;
+    }
+    .reveal .footnotes ol li:before {
+      counter-increment: ol;
+      content: counter(ol) ". "; 
+    }
+    .reveal .footnotes ol li > p:first-child {
+      display: inline-block;
+    }
+    .reveal .slide ul,
+    .reveal .slide ol {
+      margin-bottom: 0.5em;
+    }
+    .reveal .slide ul li,
+    .reveal .slide ol li {
+      margin-top: 0.4em;
+      margin-bottom: 0.2em;
+    }
+    .reveal .slide ul[role="tablist"] li {
+      margin-bottom: 0;
+    }
+    .reveal .slide ul li > *:first-child,
+    .reveal .slide ol li > *:first-child {
+      margin-block-start: 0;
+    }
+    .reveal .slide ul li > *:last-child,
+    .reveal .slide ol li > *:last-child {
+      margin-block-end: 0;
+    }
+    .reveal .slide .columns:nth-child(3) {
+      margin-block-start: 0.8em;
+    }
+    .reveal blockquote {
+      box-shadow: none;
+    }
+    .reveal .tippy-content>* {
+      margin-top: 0.2em;
+      margin-bottom: 0.7em;
+    }
+    .reveal .tippy-content>*:last-child {
+      margin-bottom: 0.2em;
+    }
+    .reveal .slide > img.stretch.quarto-figure-center,
+    .reveal .slide > img.r-stretch.quarto-figure-center {
+      display: block;
+      margin-left: auto;
+      margin-right: auto; 
+    }
+    .reveal .slide > img.stretch.quarto-figure-left,
+    .reveal .slide > img.r-stretch.quarto-figure-left  {
+      display: block;
+      margin-left: 0;
+      margin-right: auto; 
+    }
+    .reveal .slide > img.stretch.quarto-figure-right,
+    .reveal .slide > img.r-stretch.quarto-figure-right  {
+      display: block;
+      margin-left: auto;
+      margin-right: 0; 
+    }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+<section id="title-slide" class="center">
+  <h1 class="title">Residual Diagnostics and Leverage</h1>
+  <p class="author">Brandon M. Greenwell</p>
+  <p class="institute">University of Cincinnati</p>
+</section>
+
+<section id="main-topics" class="slide level2">
+<h2>Main topics</h2>
+<ul>
+<li>Types of residuals</li>
+<li>Basic diagnostic plots</li>
+<li>Leverage values and “unusual” data</li>
+<li>Multicollinearity and variance inflation factors</li>
+</ul>
+<div class="cell">
+
+</div>
+</section>
+<section id="required-packages" class="slide level2">
+<h2>Required packages</h2>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a>pkgs <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb1-2"><a href="#cb1-2"></a>  <span class="st">"car"</span>,      <span class="co"># for the vif() function</span></span>
+<span id="cb1-3"><a href="#cb1-3"></a>  <span class="st">"ggplot2"</span>,  <span class="co"># for generating some of the figures</span></span>
+<span id="cb1-4"><a href="#cb1-4"></a>  <span class="st">"glmnet"</span>,   <span class="co"># for elastic net (i.e., ridge and LASSO)</span></span>
+<span id="cb1-5"><a href="#cb1-5"></a>  <span class="st">"ISLR2"</span>     <span class="co"># for the Hitters data</span></span>
+<span id="cb1-6"><a href="#cb1-6"></a>)</span>
+<span id="cb1-7"><a href="#cb1-7"></a>install <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(pkgs, <span class="fu">installed.packages</span>()[, <span class="st">"Package"</span>])</span>
+<span id="cb1-8"><a href="#cb1-8"></a><span class="fu">install.packages</span>(install)</span>
+<span id="cb1-9"><a href="#cb1-9"></a></span>
+<span id="cb1-10"><a href="#cb1-10"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-11"><a href="#cb1-11"></a></span>
+<span id="cb1-12"><a href="#cb1-12"></a><span class="fu">theme_set</span>(<span class="fu">theme_bw</span>())  <span class="co"># set ggplot2 theme for the lecture</span></span>
+<span id="cb1-13"><a href="#cb1-13"></a></span>
+<span id="cb1-14"><a href="#cb1-14"></a><span class="co"># Use a more colorblind-friendly color palette</span></span>
+<span id="cb1-15"><a href="#cb1-15"></a><span class="fu">palette</span>(<span class="st">"Okabe-Ito"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="learning-more" class="slide level2">
+<h2>Learning more</h2>
+<div class="columns">
+<div class="column" style="width:50%;">
+<ul>
+<li><p>John Fox’s <a href="https://socialsciences.mcmaster.ca/jfox/Courses/Brazil-2009/slides-handout.pdf">course notes</a></p></li>
+<li><p>John Fox’s <a href="https://us.sagepub.com/en-us/nam/regression-diagnostics/book269026">book</a></p></li>
+<li><p>John Fox’s <a href="https://cran.r-project.org/package=car">car</a> package has lots of utilities for performing regression diagnostics</p></li>
+</ul>
+</div><div class="column" style="width:50%;">
+<p><img data-src="images/regression-diagnostics-book.jpeg" style="width:65.0%"></p>
+</div>
+</div>
+</section>
+<section>
+<section id="types-of-residuals" class="title-slide slide level1 center">
+<h1>Types of residuals</h1>
+
+</section>
+<section id="residual-diagnostics" class="slide level2">
+<h2>Residual diagnostics</h2>
+<ul>
+<li><p>What’s wrong with my model and how do I fix it?</p>
+<ul>
+<li>All statistical models make assumptions!</li>
+<li>No model is perfect (nor is the data)</li>
+</ul></li>
+<li><p>Diagnostic plots<sup>1</sup> based on <em>residuals</em> and <em>leverage</em> values can help identify issues with the model</p>
+<ul>
+<li>What are <a href="https://en.wikipedia.org/wiki/Errors_and_residuals">residuals</a> and <a href="https://en.wikipedia.org/wiki/Leverage_(statistics)">leverage</a> values?</li>
+<li>What are some common and useful diagnostic plots?</li>
+</ul></li>
+</ul>
+<aside><ol class="aside-footnotes"><li id="fn1" role="doc-endnote"><p>I’m not a fan of diagnostic (statistical) tests, like normality tests. Plots are often much more informative!</p></li></ol></aside></section>
+<section id="mlr-assumptions" class="slide level2">
+<h2>MLR assumptions</h2>
+<p>Consider a standard MLR model: <span class="math display">\[Y_i = \beta_0 + \beta_1 X_{i1} + \dots + \beta_{p-1} X_{i, p-1} + \epsilon_i, \quad i = 1, 2, \dots, n\]</span></p>
+<p>The typical assumptions:</p>
+<ol type="1">
+<li><p>Independent observations: <span class="math inline">\(Cov\left(\epsilon_i, \epsilon_j\right) = 0\)</span> <span class="math inline">\(\left(i \ne j\right)\)</span></p></li>
+<li><p>Constant variance: <span class="math inline">\(Var\left(\epsilon_i\right) = Cov\left(\epsilon_i, \epsilon_i\right) = \sigma^2\)</span></p></li>
+<li><p>Normally distributed errors: <span class="math inline">\(\epsilon_i \stackrel{iid}{\sim} N\left(0, \sigma^2\right)\)</span></p></li>
+<li><p>We assume that we have the <strong>correct model</strong> (or at least a useful one)!</p></li>
+</ol>
+</section>
+<section id="what-is-a-residual" class="slide level2">
+<h2>What is a residual?</h2>
+<ul>
+<li><p>Think of residuals as the “observed errors” from the model</p></li>
+<li><p>Computed as the difference between the actual response value and its corresponding prediction (or fitted value)</p></li>
+</ul>
+<p>More specifically, the <span class="math inline">\(i\)</span>-th residual (<span class="math inline">\(r_i\)</span>) is defined as <span class="math display">\[r_i = y_i - \hat{y}_i,\]</span> where <span class="math inline">\(\hat{y}_i = \hat{\beta}_0 + \sum_{j = 1} ^ p \hat{\beta}_j x_{ij}\)</span>. Or, in matrix notation, <span class="math display">\[\boldsymbol{r} = \boldsymbol{y} - \hat{\boldsymbol{y}} = \left(\boldsymbol{I}_n - \boldsymbol{H}\right)\boldsymbol{y}\]</span></p>
+</section>
+<section id="what-can-residual-plots-tell-us" class="slide level2">
+<h2>What can residual plots tell us?</h2>
+<ul>
+<li><p>Residuals vs.&nbsp;predictor values (<strong>checking non-linearity</strong>).</p></li>
+<li><p>Residuals vs.&nbsp;fitted values (<strong>non-constant variance and non-linearity</strong>)</p></li>
+<li><p>Residuals vs.&nbsp;time or another sequence (<strong>non-independence</strong>)</p></li>
+<li><p>Residuals vs.&nbsp;omitted predictor values (<strong>missing potentially important predictors</strong>)</p></li>
+<li><p>Normal quantile-quantile plot of residuals (<strong>non-normality</strong>).</p></li>
+<li><p>And many, many more!</p></li>
+</ul>
+</section>
+<section class="slide level2">
+
+<div class="cell" data-layout-align="center" data-par2="true">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1"></a><span class="co"># Simualated data sets</span></span>
+<span id="cb2-2"><a href="#cb2-2"></a><span class="fu">set.seed</span>(<span class="dv">101</span>)  <span class="co"># for reproducibility</span></span>
+<span id="cb2-3"><a href="#cb2-3"></a>n <span class="ot">&lt;-</span> <span class="dv">100</span></span>
+<span id="cb2-4"><a href="#cb2-4"></a>df1 <span class="ot">&lt;-</span> tibble<span class="sc">::</span><span class="fu">tibble</span>(</span>
+<span id="cb2-5"><a href="#cb2-5"></a>  <span class="at">x =</span> <span class="fu">runif</span>(n, <span class="at">min =</span> <span class="sc">-</span><span class="dv">5</span>, <span class="at">max =</span> <span class="dv">5</span>),</span>
+<span id="cb2-6"><a href="#cb2-6"></a>  <span class="at">y =</span> <span class="dv">1</span> <span class="sc">+</span> <span class="dv">2</span><span class="sc">*</span>x<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">10</span>)</span>
+<span id="cb2-7"><a href="#cb2-7"></a>)</span>
+<span id="cb2-8"><a href="#cb2-8"></a>df2 <span class="ot">&lt;-</span> tibble<span class="sc">::</span><span class="fu">tibble</span>(</span>
+<span id="cb2-9"><a href="#cb2-9"></a>  <span class="at">x =</span> <span class="fu">runif</span>(n, <span class="at">min =</span> <span class="dv">1</span>, <span class="at">max =</span> <span class="dv">10</span>),</span>
+<span id="cb2-10"><a href="#cb2-10"></a>  <span class="at">y =</span> <span class="dv">1</span> <span class="sc">+</span> <span class="dv">4</span><span class="sc">*</span>x <span class="sc">+</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="dv">2</span><span class="sc">*</span>x)</span>
+<span id="cb2-11"><a href="#cb2-11"></a>)</span>
+<span id="cb2-12"><a href="#cb2-12"></a>df2 <span class="ot">&lt;-</span> <span class="fu">rbind</span>(df2, <span class="fu">data.frame</span>(<span class="at">x =</span> <span class="dv">2</span>, <span class="at">y =</span> <span class="dv">50</span>))</span>
+<span id="cb2-13"><a href="#cb2-13"></a>df3 <span class="ot">&lt;-</span> tibble<span class="sc">::</span><span class="fu">tibble</span>(</span>
+<span id="cb2-14"><a href="#cb2-14"></a>  <span class="at">x =</span> <span class="fu">runif</span>(n, <span class="at">min =</span> <span class="dv">1</span>, <span class="at">max =</span> <span class="dv">10</span>),</span>
+<span id="cb2-15"><a href="#cb2-15"></a>  <span class="at">y =</span> <span class="dv">1</span> <span class="sc">+</span> <span class="dv">4</span><span class="sc">*</span>x <span class="sc">+</span> <span class="fu">arima.sim</span>(<span class="fu">list</span>(<span class="at">order =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">0</span>,<span class="dv">0</span>), <span class="at">ar =</span> <span class="fl">0.99</span>), <span class="at">n =</span> n, <span class="at">sd =</span> <span class="dv">20</span>)</span>
+<span id="cb2-16"><a href="#cb2-16"></a>)</span>
+<span id="cb2-17"><a href="#cb2-17"></a>df4 <span class="ot">&lt;-</span> tibble<span class="sc">::</span><span class="fu">tibble</span>(</span>
+<span id="cb2-18"><a href="#cb2-18"></a>  <span class="at">x =</span> <span class="fu">runif</span>(n, <span class="at">min =</span> <span class="dv">1</span>, <span class="at">max =</span> <span class="dv">10</span>),</span>
+<span id="cb2-19"><a href="#cb2-19"></a>  <span class="at">y =</span> <span class="dv">1</span> <span class="sc">+</span> <span class="dv">4</span><span class="sc">*</span>x <span class="sc">+</span> <span class="fu">rlnorm</span>(n, <span class="at">sd =</span> <span class="fl">0.9</span>)</span>
+<span id="cb2-20"><a href="#cb2-20"></a>)</span>
+<span id="cb2-21"><a href="#cb2-21"></a></span>
+<span id="cb2-22"><a href="#cb2-22"></a><span class="co"># Fitted models</span></span>
+<span id="cb2-23"><a href="#cb2-23"></a>fit1 <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x, <span class="at">data =</span> df1)</span>
+<span id="cb2-24"><a href="#cb2-24"></a>fit2 <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x, <span class="at">data =</span> df2)</span>
+<span id="cb2-25"><a href="#cb2-25"></a>fit3 <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x, <span class="at">data =</span> df3)</span>
+<span id="cb2-26"><a href="#cb2-26"></a>fit4 <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x, <span class="at">data =</span> df4)</span>
+<span id="cb2-27"><a href="#cb2-27"></a></span>
+<span id="cb2-28"><a href="#cb2-28"></a><span class="co"># Extract residuals from each model</span></span>
+<span id="cb2-29"><a href="#cb2-29"></a>r1 <span class="ot">&lt;-</span> <span class="fu">residuals</span>(fit1)</span>
+<span id="cb2-30"><a href="#cb2-30"></a>r2 <span class="ot">&lt;-</span> <span class="fu">rstandard</span>(fit2)</span>
+<span id="cb2-31"><a href="#cb2-31"></a>r3 <span class="ot">&lt;-</span> <span class="fu">residuals</span>(fit3)</span>
+<span id="cb2-32"><a href="#cb2-32"></a>r4 <span class="ot">&lt;-</span> <span class="fu">residuals</span>(fit4)</span>
+<span id="cb2-33"><a href="#cb2-33"></a></span>
+<span id="cb2-34"><a href="#cb2-34"></a><span class="co"># Residual plots</span></span>
+<span id="cb2-35"><a href="#cb2-35"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">2</span>))</span>
+<span id="cb2-36"><a href="#cb2-36"></a><span class="fu">plot</span>(df1<span class="sc">$</span>x, r1, <span class="at">xlab =</span> <span class="st">"X"</span>, <span class="at">ylab =</span> <span class="st">"Residual"</span>, </span>
+<span id="cb2-37"><a href="#cb2-37"></a>     <span class="at">main =</span> <span class="st">"Misspecified mean structure"</span>)</span>
+<span id="cb2-38"><a href="#cb2-38"></a><span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="st">"dotted"</span>, <span class="at">col =</span> <span class="st">"red2"</span>)</span>
+<span id="cb2-39"><a href="#cb2-39"></a><span class="fu">lines</span>(<span class="fu">lowess</span>(df1<span class="sc">$</span>x, r1), <span class="at">col =</span> <span class="st">"dodgerblue"</span>, <span class="at">lwd =</span> <span class="dv">3</span>)</span>
+<span id="cb2-40"><a href="#cb2-40"></a><span class="fu">plot</span>(df2<span class="sc">$</span>x, r2, <span class="at">xlab =</span> <span class="st">"X"</span>, <span class="at">ylab =</span> <span class="st">"Residual"</span>,</span>
+<span id="cb2-41"><a href="#cb2-41"></a>     <span class="at">main =</span> <span class="st">"Non-constant variance"</span>)</span>
+<span id="cb2-42"><a href="#cb2-42"></a><span class="fu">points</span>(df2<span class="sc">$</span>x[101L], r2[101L], <span class="at">pch =</span> <span class="dv">19</span>, <span class="at">col =</span> <span class="st">"red2"</span>)</span>
+<span id="cb2-43"><a href="#cb2-43"></a><span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="st">"dotted"</span>, <span class="at">col =</span> <span class="st">"red2"</span>)</span>
+<span id="cb2-44"><a href="#cb2-44"></a><span class="fu">plot</span>(<span class="fu">residuals</span>(fit3), <span class="at">xlab =</span> <span class="st">"Index"</span>, <span class="at">ylab =</span> <span class="st">"Residual"</span>, <span class="at">type =</span> <span class="st">"l"</span>,</span>
+<span id="cb2-45"><a href="#cb2-45"></a>     <span class="at">main =</span> <span class="st">"Serial correlation"</span>)</span>
+<span id="cb2-46"><a href="#cb2-46"></a><span class="fu">points</span>(<span class="fu">residuals</span>(fit3), <span class="at">col =</span> <span class="fu">adjustcolor</span>(<span class="st">"black"</span>, <span class="at">alpha.f =</span> <span class="fl">0.2</span>))</span>
+<span id="cb2-47"><a href="#cb2-47"></a><span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="st">"dotted"</span>, <span class="at">col =</span> <span class="st">"red2"</span>)</span>
+<span id="cb2-48"><a href="#cb2-48"></a><span class="fu">qqnorm</span>(r4, <span class="at">main =</span> <span class="st">"Non-normal errors"</span>, <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">5</span>, <span class="dv">15</span>))</span>
+<span id="cb2-49"><a href="#cb2-49"></a><span class="fu">qqline</span>(r4, <span class="at">lty =</span> <span class="st">"dotted"</span>, <span class="at">col =</span> <span class="st">"red2"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-1-1.png" style="width:55.0%" class="r-stretch quarto-figure-center"></section>
+<section id="scaled-residuals" class="slide level2">
+<h2>Scaled residuals</h2>
+<ul>
+<li><p>Residuals help in identifying a misspecified mean structure (i.e., <span class="math inline">\(f\left(\boldsymbol{X}\right) = \boldsymbol{X}\boldsymbol{\beta}\)</span>)</p></li>
+<li><p><em>Scaled residuals</em> help in identifying outliers or extreme values</p></li>
+<li><p>Common types of residuals<sup>1</sup>:</p>
+<ul>
+<li><p>Standardized Residuals</p></li>
+<li><p>Studentized residuals</p></li>
+<li><p>PRESS Residuals</p></li>
+</ul></li>
+</ul>
+<aside><ol class="aside-footnotes"><li id="fn2" role="doc-endnote"><p>I’ve seen “standardized” and “studentized” defined differently across texts and software!</p></li></ol></aside></section>
+<section id="standardizedstudentized-residuals" class="slide level2">
+<h2>Standardized/studentized residuals</h2>
+<p><span class="math display">\[r_i^{stan} = \frac{r_i}{\sqrt{Var\left(r_i\right)}}\]</span></p>
+<ul>
+<li><p>We want the standardized residuals to have <strong>mean zero</strong> and <strong>unit variance</strong></p></li>
+<li><p>Large positive/negative values of <span class="math inline">\(r_i^{stan}\)</span>, say <span class="math inline">\(\left|r_i^{stan}\right| &gt; 3\)</span>, may indicate an outlier</p></li>
+</ul>
+<p>So what is <span class="math inline">\(Var\left(r_i\right)\)</span>? 🤔</p>
+</section>
+<section id="standardizedstudentized-residuals-1" class="slide level2">
+<h2>Standardized/studentized residuals</h2>
+<p>If <span class="math inline">\(\epsilon_i \stackrel{iid}{\sim} N\left(0, \sigma^2\right)\)</span>, then <span class="math inline">\(\epsilon_i/\sigma \stackrel{iid}{\sim} N\left(0, 1\right)\)</span>, so it seems intuitive to define a standardized residual as <span class="math display">\[r_i^{stan} =\frac{r_i}{\sqrt{MSE}} = \frac{r_i}{RMSE}\]</span></p>
+<p>However, <span class="math display">\[Var\left(r_i\right) \ne MSE\]</span></p>
+</section>
+<section id="standardizedstudentized-residuals-2" class="slide level2">
+<h2>Standardized/studentized residuals</h2>
+<ul>
+<li><p>Recall that <span class="math inline">\(r_i = y_i - \hat{y}_i\)</span> (or <span class="math inline">\(\boldsymbol{r} = \boldsymbol{y} - \hat{\boldsymbol{y}})\)</span></p></li>
+<li><p>It can be shown that the variance of <span class="math inline">\(r_i\)</span> is given by <span class="math display">\[\sigma^2\left(1 - h_i\right),\]</span> which can be estimated with <span class="math inline">\(MSE\left(1 - h_i\right)\)</span></p></li>
+<li><p>Studentized residual: <span class="math inline">\(r_i^{stud} = \frac{r_i}{\sqrt{MSE\left(1 - h_i\right)}}\)</span></p>
+<ul>
+<li><p>Variance of residuals depends on <span class="math inline">\(\boldsymbol{X}\)</span></p></li>
+<li><p>More effective at detecting outlying response values</p></li>
+</ul></li>
+</ul>
+</section>
+<section id="press-residuals" class="slide level2">
+<h2>PRESS residuals</h2>
+<ul>
+<li><p>Another refinement to make the residuals more effective at detecting outlying <span class="math inline">\(Y\)</span> observations is to measure the <em>i</em>-th residual <span class="math inline">\(r_i = Y_i - \hat{Y}_i\)</span> when the fitted regression is based on all of the cases except the <em>i</em>-th one</p>
+<ul>
+<li><p>Also referred to as the <em>deleted residuals</em> or <em>jackknife residuals</em></p></li>
+<li><p>A form of <a href="https://en.wikipedia.org/wiki/Cross-validation_(statistics)#Leave-one-out_cross-validation">leave one out cross-validation</a> (LOOCV)</p></li>
+</ul></li>
+<li><p>It can be shown that these residuals can be obtained without refitting the model <span class="math inline">\(n\)</span> times using <span class="math display">\[r_i^{PRESS} = d_i = \frac{r_i}{1 - h_i}\]</span></p></li>
+<li><p>PRESS statistic: <span class="math inline">\(PRESS = \sum_{i=1}^n d_i^2\)</span> (useful for model building/selection)</p></li>
+</ul>
+<p>::: See <code>?stats::influence.measures</code> (and the references therein) for even more! :::</p>
+</section></section>
+<section>
+<section id="basic-diagnostic-plots" class="title-slide slide level1 center">
+<h1>Basic diagnostic plots</h1>
+
+</section>
+<section id="assessing-normality" class="slide level2">
+<h2>Assessing normality</h2>
+<ul>
+<li><p>Normal quantile-quantile (Q-Q) plot* can be used to asses the “normalityness” of a set of observations</p></li>
+<li><p>Q-Q plots can, in general, be used to compare data with any distribution!</p></li>
+</ul>
+</section>
+<section class="slide level2">
+
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1"></a><span class="fu">set.seed</span>(<span class="dv">101</span>)</span>
+<span id="cb3-2"><a href="#cb3-2"></a>x <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(<span class="dv">100</span>)</span>
+<span id="cb3-3"><a href="#cb3-3"></a><span class="fu">qqnorm</span>(x, <span class="at">main =</span> <span class="st">"Normal distribution"</span>)</span>
+<span id="cb3-4"><a href="#cb3-4"></a><span class="fu">qqline</span>(x, <span class="at">lty =</span> <span class="st">"dotted"</span>, <span class="at">col =</span> <span class="st">"red2"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-2-1.png" style="width:70.0%" class="r-stretch quarto-figure-center"></section>
+<section class="slide level2">
+
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1"></a><span class="fu">set.seed</span>(<span class="dv">101</span>)</span>
+<span id="cb4-2"><a href="#cb4-2"></a>x <span class="ot">&lt;-</span> <span class="fu">rlnorm</span>(<span class="dv">100</span>)</span>
+<span id="cb4-3"><a href="#cb4-3"></a><span class="fu">qqnorm</span>(x, <span class="at">main =</span> <span class="st">"Right-skewed distribution"</span>)</span>
+<span id="cb4-4"><a href="#cb4-4"></a><span class="fu">qqline</span>(x, <span class="at">lty =</span> <span class="st">"dotted"</span>, <span class="at">col =</span> <span class="st">"red2"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-3-1.png" style="width:70.0%" class="r-stretch quarto-figure-center"></section>
+<section class="slide level2">
+
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1"></a><span class="fu">set.seed</span>(<span class="dv">101</span>)</span>
+<span id="cb5-2"><a href="#cb5-2"></a>x <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fu">rlnorm</span>(<span class="dv">100</span>)</span>
+<span id="cb5-3"><a href="#cb5-3"></a><span class="fu">qqnorm</span>(x, <span class="at">main =</span> <span class="st">"Left-skewed distribution"</span>)</span>
+<span id="cb5-4"><a href="#cb5-4"></a><span class="fu">qqline</span>(x, <span class="at">lty =</span> <span class="st">"dotted"</span>, <span class="at">col =</span> <span class="st">"red2"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-4-1.png" style="width:70.0%" class="r-stretch quarto-figure-center"></section>
+<section class="slide level2">
+
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1"></a><span class="fu">set.seed</span>(<span class="dv">101</span>)</span>
+<span id="cb6-2"><a href="#cb6-2"></a>x <span class="ot">&lt;-</span> <span class="fu">rt</span>(<span class="dv">100</span>, <span class="at">df =</span> <span class="dv">1</span>)</span>
+<span id="cb6-3"><a href="#cb6-3"></a><span class="fu">qqnorm</span>(x, <span class="at">main =</span> <span class="st">"Heavy-tailed distribution"</span>)</span>
+<span id="cb6-4"><a href="#cb6-4"></a><span class="fu">qqline</span>(x, <span class="at">lty =</span> <span class="st">"dotted"</span>, <span class="at">col =</span> <span class="st">"red2"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-5-1.png" style="width:70.0%" class="r-stretch quarto-figure-center"></section>
+<section id="assessing-normality-1" class="slide level2">
+<h2>Assessing normality</h2>
+<ul>
+<li><p>Normality tests, like the <a href="https://en.wikipedia.org/wiki/Shapiro%E2%80%93Wilk_test">Shapiro-Wilk</a><sup>1</sup> and <a href="https://en.wikipedia.org/wiki/Anderson%E2%80%93Darling_test">Anderson-Darling</a> tests, can also be used to assess normality</p>
+<ul>
+<li>I STRONGLY ADVISE AGAINST USING THEM!</li>
+</ul></li>
+<li><p>No data is normally distributes, what we care about is whether enough a normal approximation is close enough!</p></li>
+<li><p>Normality tests provide a <span class="math inline">\(p\)</span>-value, which only gives a yes/no conclusion</p>
+<ul>
+<li>Recall that <span class="math inline">\(p\)</span>-values are a function of sample size</li>
+</ul></li>
+</ul>
+<aside><ol class="aside-footnotes"><li id="fn3" role="doc-endnote"><p>In R, see <code>?shapiro.test</code> for details.</p></li></ol></aside></section>
+<section class="slide level2">
+
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1"></a><span class="co"># Shapiro-Wilk test results vs. sample size</span></span>
+<span id="cb7-2"><a href="#cb7-2"></a><span class="fu">set.seed</span>(<span class="dv">101</span>)  <span class="co"># for reproducibility</span></span>
+<span id="cb7-3"><a href="#cb7-3"></a>x <span class="ot">&lt;-</span> <span class="fu">replicate</span>(<span class="dv">100</span>, <span class="fu">c</span>(</span>
+<span id="cb7-4"><a href="#cb7-4"></a>  <span class="fu">shapiro.test</span>(<span class="fu">rt</span>(<span class="dv">10</span>, <span class="at">df =</span> <span class="dv">40</span>))<span class="sc">$</span>p.value,</span>
+<span id="cb7-5"><a href="#cb7-5"></a>  <span class="fu">shapiro.test</span>(<span class="fu">rt</span>(<span class="dv">100</span>, <span class="at">df =</span> <span class="dv">40</span>))<span class="sc">$</span>p.value,</span>
+<span id="cb7-6"><a href="#cb7-6"></a>  <span class="fu">shapiro.test</span>(<span class="fu">rt</span>(<span class="dv">500</span>, <span class="at">df =</span> <span class="dv">40</span>))<span class="sc">$</span>p.value,</span>
+<span id="cb7-7"><a href="#cb7-7"></a>  <span class="fu">shapiro.test</span>(<span class="fu">rt</span>(<span class="dv">1000</span>, <span class="at">df =</span> <span class="dv">40</span>))<span class="sc">$</span>p.value,</span>
+<span id="cb7-8"><a href="#cb7-8"></a>  <span class="fu">shapiro.test</span>(<span class="fu">rt</span>(<span class="dv">2500</span>, <span class="at">df =</span> <span class="dv">40</span>))<span class="sc">$</span>p.value,</span>
+<span id="cb7-9"><a href="#cb7-9"></a>  <span class="fu">shapiro.test</span>(<span class="fu">rt</span>(<span class="dv">5000</span>, <span class="at">df =</span> <span class="dv">40</span>))<span class="sc">$</span>p.value</span>
+<span id="cb7-10"><a href="#cb7-10"></a>))</span>
+<span id="cb7-11"><a href="#cb7-11"></a><span class="fu">rownames</span>(x) <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"n="</span>, <span class="fu">c</span>(<span class="dv">10</span>, <span class="dv">100</span>, <span class="dv">500</span>, <span class="dv">1000</span>, <span class="dv">2500</span>, <span class="dv">5000</span>))</span>
+<span id="cb7-12"><a href="#cb7-12"></a><span class="fu">rowMeans</span>(x <span class="sc">&lt;</span> <span class="fl">0.05</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  n=10  n=100  n=500 n=1000 n=2500 n=5000 
+  0.01   0.08   0.11   0.22   0.24   0.39 </code></pre>
+</div>
+</div>
+</section>
+<section class="slide level2">
+
+
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-7-1.png" style="width:100.0%" class="r-stretch quarto-figure-center"><ol type="1">
+<li><p>Are these two distributions significantly different?</p></li>
+<li><p>Are these two distributions practically different?</p></li>
+</ol>
+</section>
+<section id="example-mlb-salary-data" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1"></a>mlb <span class="ot">&lt;-</span> ISLR2<span class="sc">::</span>Hitters</span>
+<span id="cb9-2"><a href="#cb9-2"></a>mlb <span class="ot">&lt;-</span> mlb[<span class="sc">!</span><span class="fu">is.na</span>(mlb<span class="sc">$</span>Salary), ]  <span class="co"># rm rows w/ missing response values</span></span>
+<span id="cb9-3"><a href="#cb9-3"></a><span class="fu">str</span>(mlb)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>'data.frame':   263 obs. of  20 variables:
+ $ AtBat    : int  315 479 496 321 594 185 298 323 401 574 ...
+ $ Hits     : int  81 130 141 87 169 37 73 81 92 159 ...
+ $ HmRun    : int  7 18 20 10 4 1 0 6 17 21 ...
+ $ Runs     : int  24 66 65 39 74 23 24 26 49 107 ...
+ $ RBI      : int  38 72 78 42 51 8 24 32 66 75 ...
+ $ Walks    : int  39 76 37 30 35 21 7 8 65 59 ...
+ $ Years    : int  14 3 11 2 11 2 3 2 13 10 ...
+ $ CAtBat   : int  3449 1624 5628 396 4408 214 509 341 5206 4631 ...
+ $ CHits    : int  835 457 1575 101 1133 42 108 86 1332 1300 ...
+ $ CHmRun   : int  69 63 225 12 19 1 0 6 253 90 ...
+ $ CRuns    : int  321 224 828 48 501 30 41 32 784 702 ...
+ $ CRBI     : int  414 266 838 46 336 9 37 34 890 504 ...
+ $ CWalks   : int  375 263 354 33 194 24 12 8 866 488 ...
+ $ League   : Factor w/ 2 levels "A","N": 2 1 2 2 1 2 1 2 1 1 ...
+ $ Division : Factor w/ 2 levels "E","W": 2 2 1 1 2 1 2 2 1 1 ...
+ $ PutOuts  : int  632 880 200 805 282 76 121 143 0 238 ...
+ $ Assists  : int  43 82 11 40 421 127 283 290 0 445 ...
+ $ Errors   : int  10 14 3 4 25 7 9 19 0 22 ...
+ $ Salary   : num  475 480 500 91.5 750 ...
+ $ NewLeague: Factor w/ 2 levels "A","N": 2 1 2 2 1 1 1 2 1 1 ...</code></pre>
+</div>
+</div>
+
+<aside><div>
+<p>See <code>?ISLR2::Hitters</code> for details</p>
+</div></aside></section>
+<section id="example-mlb-salary-data-1" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<p>For now, we’ll consider only five variables:</p>
+<ul>
+<li><p><code>Salary</code> - 1987 annual salary on opening day in thousands of dollars</p></li>
+<li><p><code>CRBI</code> - number of runs batted in during his career</p></li>
+<li><p><code>CHits</code> - number of hits during his career</p></li>
+<li><p><code>Walks</code> - number of walks in 1986</p></li>
+<li><p><code>Runs</code> - number of runs in 1986</p></li>
+</ul>
+</section>
+<section id="example-mlb-salary-data-2" class="slide level2">
+<h2>Example: MLB salary data</h2>
+
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-9-1.png" style="width:100.0%" class="r-stretch quarto-figure-center"></section>
+<section id="example-mlb-salary-data-3" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<!-- The full model: $$E\left(\texttt{Salary}\right) = \beta_0 + \beta_1\texttt{CRBI} + \beta_1\texttt{CHits} \\+ \beta_1\texttt{Walks} + \beta_1\texttt{Runs}$$ -->
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1"></a>mlb.fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(Salary <span class="sc">~</span> CRBI <span class="sc">+</span> CHits <span class="sc">+</span> Walks <span class="sc">+</span> Runs, <span class="at">data =</span> mlb)</span>
+<span id="cb11-2"><a href="#cb11-2"></a><span class="fu">summary</span>(mlb.fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = Salary ~ CRBI + CHits + Walks + Runs, data = mlb)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-1046.03  -179.31   -44.15   108.85  2155.48 
+
+Coefficients:
+            Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept) -32.3566    53.6098  -0.604 0.546669    
+CRBI          0.4647     0.2079   2.235 0.026282 *  
+CHits         0.1059     0.1023   1.035 0.301791    
+Walks         2.9544     1.4136   2.090 0.037596 *  
+Runs          3.9605     1.1619   3.409 0.000757 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 343.3 on 258 degrees of freedom
+Multiple R-squared:  0.4296,    Adjusted R-squared:  0.4208 
+F-statistic: 48.58 on 4 and 258 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+</div>
+</section>
+<section id="example-mlb-salary-data-4" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a>r.ord <span class="ot">&lt;-</span> <span class="fu">residuals</span>(mlb.fit)  <span class="co"># ordinary residuals</span></span>
+<span id="cb13-2"><a href="#cb13-2"></a>r.stu <span class="ot">&lt;-</span> <span class="fu">rstandard</span>(mlb.fit)  <span class="co"># studentized residual </span></span>
+<span id="cb13-3"><a href="#cb13-3"></a>f.val <span class="ot">&lt;-</span> <span class="fu">fitted</span>(mlb.fit)     <span class="co"># fitted values</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="example-mlb-salary-data-5" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1"></a><span class="fu">qqnorm</span>(r.ord)</span>
+<span id="cb14-2"><a href="#cb14-2"></a><span class="fu">qqline</span>(r.ord, <span class="at">col =</span> <span class="dv">2</span>)  <span class="co"># add reference line</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-12-1.png" style="width:80.0%" class="r-stretch quarto-figure-center"></section>
+<section id="example-mlb-salary-data-6" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center" data-par="true">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1"></a><span class="fu">hist</span>(mlb<span class="sc">$</span>Salary, <span class="at">xlab =</span> <span class="st">"Salary"</span>, <span class="at">main =</span> <span class="st">""</span>)  <span class="co"># default histogram</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-13-1.png" style="width:80.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+
+<aside><div>
+<p>The response will not necessarily look like a normal distribution! (Think about why?)</p>
+</div></aside></section>
+<section id="example-mlb-salary-data-7" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center" data-par="true">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1"></a><span class="fu">plot</span>(f.val, <span class="at">y =</span> r.ord, <span class="at">xlab =</span> <span class="st">"Fitted value"</span>, <span class="at">ylab =</span> <span class="st">"Residual"</span>)</span>
+<span id="cb16-2"><a href="#cb16-2"></a><span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">col =</span> <span class="dv">2</span>)  <span class="co"># add reference line</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-14-1.png" style="width:80.0%" class="r-stretch quarto-figure-center"></section>
+<section id="example-mlb-salary-data-8" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center" data-par="true">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1"></a><span class="fu">plot</span>(f.val, <span class="at">y =</span> r.stu, <span class="at">xlab =</span> <span class="st">"Fitted value"</span>, <span class="at">ylab =</span> <span class="st">"Studentized residual"</span>)</span>
+<span id="cb17-2"><a href="#cb17-2"></a><span class="fu">abline</span>(<span class="at">h =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">3</span>), <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">col =</span> <span class="dv">2</span>)  <span class="co"># add reference lines</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-15-1.png" style="width:80.0%" class="r-stretch quarto-figure-center"></section>
+<section id="example-mlb-salary-data-9" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a>xvars <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"CRBI"</span>, <span class="st">"CHits"</span>, <span class="st">"Walks"</span>, <span class="st">"Runs"</span>)</span>
+<span id="cb18-2"><a href="#cb18-2"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">2</span>), <span class="at">las =</span> <span class="dv">1</span>)  <span class="co"># set plotting parameters</span></span>
+<span id="cb18-3"><a href="#cb18-3"></a><span class="cf">for</span> (xvar <span class="cf">in</span> xvars) {</span>
+<span id="cb18-4"><a href="#cb18-4"></a>  <span class="fu">plot</span>(mlb[[xvar]], <span class="at">y =</span> r.stu, <span class="at">xlab =</span> xvar, <span class="at">ylab =</span> <span class="st">"Studentized residual"</span>,</span>
+<span id="cb18-5"><a href="#cb18-5"></a>       <span class="at">col =</span> <span class="fu">adjustcolor</span>(<span class="dv">1</span>, <span class="at">alpha.f =</span> <span class="fl">0.5</span>))</span>
+<span id="cb18-6"><a href="#cb18-6"></a>  <span class="fu">lines</span>(<span class="fu">lowess</span>(mlb[[xvar]], <span class="at">y =</span> r.stu), <span class="at">col =</span> <span class="dv">3</span>)</span>
+<span id="cb18-7"><a href="#cb18-7"></a>  <span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>, <span class="at">col =</span> <span class="dv">2</span>)  <span class="co"># add reference line</span></span>
+<span id="cb18-8"><a href="#cb18-8"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="example-mlb-salary-data-10" class="slide level2">
+<h2>Example: MLB salary data</h2>
+
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-17-1.png" style="width:100.0%" class="r-stretch quarto-figure-center"></section>
+<section id="example-mlb-salary-data-11" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1"></a><span class="co"># Added-variable plots</span></span>
+<span id="cb19-2"><a href="#cb19-2"></a>car<span class="sc">::</span><span class="fu">avPlots</span>(mlb.fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1"></a><span class="co"># marginalModelPlot(mlb.fit)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-18-1.png" style="width:100.0%" class="r-stretch quarto-figure-center"></section>
+<section id="example-mlb-salary-data-12" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<p>In summary, so far:</p>
+<ul>
+<li><p>Heavy-tailed residuals (i.e., not normal)</p></li>
+<li><p>Non-constant variance; variance seemingly increases with the fitted value and some of the predictors, line <code>Runs</code></p></li>
+<li><p>Misspecified mean response; response has a nonlinear relationship with some of the predictors, like <code>CRBI</code> and <code>CHits</code></p></li>
+</ul>
+<p>We’ll learn how to potentially correct these issues in <a href="">Lecture 5</a>!</p>
+</section></section>
+<section>
+<section id="leverage-values-and-unusual-data" class="title-slide slide level1 center">
+<h1>Leverage values and “unusual” data</h1>
+
+</section>
+<section id="high-leverage-points" class="slide level2">
+<h2>High leverage points</h2>
+<ul>
+<li><p>Observations relatively far away from the center of the predictor space<sup>1</sup> have potentially greater influence on the LS coefficients</p></li>
+<li><p>The <a href="https://en.wikipedia.org/wiki/Leverage_(statistics)">hat values</a>, <span class="math inline">\(h_i\)</span>, provide such a measure!</p></li>
+<li><p>Check out these sample applications written:</p>
+<ul>
+<li><p>https://omaymas.github.io/InfluenceAnalysis/</p></li>
+<li><p>https://shiny.rit.albany.edu/stat/outliers/</p></li>
+</ul></li>
+</ul>
+<aside><ol class="aside-footnotes"><li id="fn4" role="doc-endnote"><p>Taking into account the correlation pattern among the predictors.</p></li></ol></aside></section>
+<section id="high-leverage-points-1" class="slide level2">
+<h2>High leverage points</h2>
+<ul>
+<li><p>Recall that the <span class="math inline">\(\hat{\boldsymbol{y}} = \boldsymbol{X}\left(\boldsymbol{X}'\boldsymbol{X}\right)^{-1}\boldsymbol{X}'\boldsymbol{y} = \boldsymbol{H}\boldsymbol{y}\)</span></p></li>
+<li><p>The hat values are just the diagonal entries of the <a href="https://en.wikipedia.org/wiki/Projection_matrix">hat matrix</a> <span class="math display">\[h_i = \boldsymbol{x}_i\left(\boldsymbol{X}'\boldsymbol{X}\right)^{-1}\boldsymbol{x}'_i\boldsymbol{y}\]</span></p></li>
+<li><p>Think of <span class="math inline">\(h_i\)</span> as the degree by which the <span class="math inline">\(i\)</span>-th observation influences the <span class="math inline">\(i\)</span>-th fitted (or predicted) value (i.e., <span class="math inline">\(\hat{y}_i\)</span>)</p></li>
+<li><p>It can also be thought of as a weighted distance between <span class="math inline">\(\boldsymbol{x}_i\)</span> and the center (or mean) of all the <span class="math inline">\(\boldsymbol{x}_i\)</span>’s.</p></li>
+</ul>
+</section>
+<section id="high-leverage-points-2" class="slide level2">
+<h2>High leverage points</h2>
+<p>Some properties of the hat values:</p>
+<ul>
+<li><p><span class="math inline">\(0 \le h_i \le 1\)</span></p></li>
+<li><p><span class="math inline">\(\sum_{i = 1} ^ n h_i = k\)</span>, where <span class="math inline">\(k\)</span> is the number of coefficients in the model</p></li>
+</ul>
+<p><strong>Rule of thumb</strong>: cases with leverage values greater than <span class="math inline">\(2k / n = 2\bar{h}\)</span> can be considered as outliers with respect to their predictor values (i.e., high leverage)</p>
+</section>
+<section id="example-mlb-salary-data-13" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center" data-par="true">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1"></a>h <span class="ot">&lt;-</span> <span class="fu">hatvalues</span>(mlb.fit)</span>
+<span id="cb21-2"><a href="#cb21-2"></a>out <span class="ot">&lt;-</span> <span class="fu">which</span>(h <span class="sc">&gt;</span> <span class="dv">2</span> <span class="sc">*</span> <span class="fu">mean</span>(h))</span>
+<span id="cb21-3"><a href="#cb21-3"></a><span class="fu">plot</span>(h, <span class="at">type =</span> <span class="st">"h"</span>, <span class="at">ylim =</span> <span class="fu">extendrange</span>(h, <span class="at">f =</span> <span class="fl">0.15</span>))</span>
+<span id="cb21-4"><a href="#cb21-4"></a><span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">2</span> <span class="sc">*</span> <span class="fu">mean</span>(h), <span class="at">col =</span> <span class="dv">2</span>)</span>
+<span id="cb21-5"><a href="#cb21-5"></a><span class="fu">text</span>(out, <span class="at">y =</span> h[out], <span class="at">labels =</span> out, <span class="at">pos =</span> <span class="dv">3</span>, <span class="at">col =</span> <span class="dv">3</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-19-1.png" style="width:70.0%" class="r-stretch quarto-figure-center"></section>
+<section id="example-mlb-salary-data-14" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1"></a>mlb[max.h <span class="ot">&lt;-</span> <span class="fu">which.max</span>(h), ]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           AtBat Hits HmRun Runs RBI Walks Years CAtBat CHits CHmRun CRuns CRBI
+-Pete Rose   237   52     0   15  25    30    24  14053  4256    160  2165 1314
+           CWalks League Division PutOuts Assists Errors Salary NewLeague
+-Pete Rose   1566      N        W     523      43      6    750         N</code></pre>
+</div>
+</div>
+<ul>
+<li><p><a href="https://en.wikipedia.org/wiki/Pete_Rose">Pete Rose</a> is the all-time MLB leader in hits, games played, at-bats, singles, and outs.</p></li>
+<li><p>An observation that is both outlying (w.r.t. the response) and has high leverage (i.e., is outlying with respect to the predictors) exerts <em>influence</em> on the estimated coefficients</p>
+<ul>
+<li>In other words, if the observation were removed, the estimated coefficients would change considerably</li>
+</ul></li>
+</ul>
+</section>
+<section id="example-mlb-salary-data-15" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1"></a><span class="fu">plot</span>(h, r.stu)</span>
+<span id="cb24-2"><a href="#cb24-2"></a><span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">2</span> <span class="sc">*</span> <span class="fu">mean</span>(h), <span class="at">h =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">3</span>), <span class="at">col =</span> <span class="dv">2</span>, <span class="at">lty =</span> <span class="st">"dashed"</span>)</span>
+<span id="cb24-3"><a href="#cb24-3"></a><span class="fu">text</span>(h[max.h], <span class="at">y =</span> r.stu[max.h], <span class="at">label =</span> <span class="fu">row.names</span>(mlb)[max.h], <span class="at">col =</span> <span class="dv">3</span>, <span class="at">pos =</span> <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-21-1.png" style="width:100.0%" class="r-stretch quarto-figure-center"></section>
+<section id="hidden-extrapolation-in-mlr" class="slide level2 smaller">
+<h2>Hidden extrapolation in MLR</h2>
+<div class="columns">
+<div class="column" style="width:40%;">
+<p>It is never a good idea to make predictions outside the region covered by the training data</p>
+<ul>
+<li><p>This region is difficult to visualize whenever <span class="math inline">\(k &gt; 2\)</span></p></li>
+<li><p>The diagonal entries of <span class="math inline">\(\boldsymbol{H}\)</span>, denoted <span class="math inline">\(h_{ii}\)</span>, can be useful for detecting outlying cases</p></li>
+</ul>
+</div><div class="column" style="width:60%;">
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-22-1.png" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<ul>
+<li><p>A new case, <span class="math inline">\(x_{new}\)</span>, is considered “outlying” if <span class="math inline">\(h_{new} = \boldsymbol{x}_{new}^\top\left(\boldsymbol{X}^\top\boldsymbol{X}\right)^{-1}\boldsymbol{x}_{new}\)</span> lies outside of the range of the diagonal entries of <span class="math inline">\(\boldsymbol{H}\)</span></p></li>
+<li><p>See <code>?influence.measures</code></p></li>
+</ul>
+</section>
+<section id="cooks-distance" class="slide level2">
+<h2>Cook’s distance</h2>
+<ul>
+<li><p>It’s convenient to summarize the difference <span class="math inline">\(\hat{\boldsymbol{\beta}}_{\left(-i\right)} - \hat{\boldsymbol{\beta}}\)</span> by a singe number</p></li>
+<li><p>This can be done in several ways, one of which is called <a href="https://en.wikipedia.org/wiki/Cook%27s_distance">Cook’s distance</a>: <span class="math display">\[D_i = \left(\frac{r_i ^ 2}{k \times MSE}\right)\left(\frac{h_i}{1 - h_i}\right)\]</span></p></li>
+<li><p>The presence of “large” <span class="math inline">\(D_i's\)</span> would suggest a <em>sensitivity analysis</em></p></li>
+<li><p><span class="math inline">\(D_i &gt; 1\)</span> is indicative of an influential observation (rough rule of thumb, and assumes a “large” sample size)</p></li>
+</ul>
+</section>
+<section id="example-mlb-salary-data-16" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center" data-par="true">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1"></a><span class="co"># Plot of vat values vs. studentized residuals vs. Cook's distance</span></span>
+<span id="cb25-2"><a href="#cb25-2"></a>car<span class="sc">::</span><span class="fu">influencePlot</span>(mlb.fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+<div class="cell-output cell-output-stdout">
+<pre><code>                  StudRes        Hat     CookD
+-Eddie Murray    4.204566 0.03980481 0.1376713
+-Mike Schmidt    6.907677 0.02438477 0.2019568
+-Pete Rose      -1.494257 0.30436405 0.1944562
+-Reggie Jackson -3.320326 0.12530482 0.3040519</code></pre>
+</div>
+</div>
+<img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-23-1.png" style="width:100.0%" class="r-stretch quarto-figure-center"></section>
+<section id="remedial-measures" class="slide level2">
+<h2>Remedial measures</h2>
+<p>Things to consider if you discover inadequacies in the model (not an exhaustive list):</p>
+<ul>
+<li><p>Misspecified mean structure: transformations (<a href="">Lecture 5</a>) and non-parametric algorithms (e.g., <a href="https://en.wikipedia.org/wiki/Generalized_additive_model">GAMs</a>, <a href="https://en.wikipedia.org/wiki/Multivariate_adaptive_regression_spline">MARS</a>, or <a href="https://www.routledge.com/Tree-Based-Methods-for-Statistical-Learning-in-R/Greenwell/p/book/9780367532468">decision trees</a>), etc.</p></li>
+<li><p>Non-constant variance: transformations (<a href="">Lecture 5</a>), <a href="https://en.wikipedia.org/wiki/Weighted_least_squares">weighted least squares</a>, and <a href="https://en.wikipedia.org/wiki/Generalized_linear_model">generalized linear models</a></p></li>
+<li><p>Outlying and/or influential observations: robust and resistant regression procedures</p>
+<ul>
+<li>See <code>?MASS::rlm</code> and <code>?MASS::lqs</code> for some options in R</li>
+</ul></li>
+<li><p>Autocorrelation: time-series modeling</p></li>
+</ul>
+</section></section>
+<section>
+<section id="multicollinearity-and-variance-inflation-factors" class="title-slide slide level1 center">
+<h1>Multicollinearity and variance inflation factors</h1>
+
+</section>
+<section id="multicolinearity" class="slide level2 smaller">
+<h2>Multicolinearity</h2>
+<ul>
+<li><p>In many (typically non-experimental) situations, the predictor variables tend to be “correlated” among themselves</p></li>
+<li><p>When this “correlation” is “high”, <a href="https://en.wikipedia.org/wiki/Multicollinearity">multicollinearity</a> is said to exist</p></li>
+<li><p>Multicollinearity does not, in general, prevent us from obtaining a good fit! It can, however, cause other issues:</p>
+<ul>
+<li><p><strong>Multicollinearity can</strong> cause some of the estimated coefficients to become unstable (i.e., high standard errors)</p></li>
+<li><p><strong>Multicollinearity can</strong> complicate the interpretation of the estimated coefficients (e.g., predicting crop yield from the amount of rainfall and hours of sunshine)</p></li>
+</ul></li>
+<li><p>A simple way to assess whether or not multicollinearity is present is to use <a href="https://en.wikipedia.org/wiki/Variance_inflation_factor">variance inflation factors</a> (VIFs)</p>
+<ul>
+<li>VIFs are available from the R package <a href="https://cran.r-project.org/package=car">car</a> as the next example illustrates</li>
+</ul></li>
+</ul>
+</section>
+<section id="multicolinearity-1" class="slide level2 smaller">
+<h2>Multicolinearity</h2>
+<p>It turns out you can rewrite the variance of <span class="math inline">\(\hat{\beta}_j\)</span> as <span class="math display">\[var\left(\hat{\beta}_j\right) = \frac{MSE}{\left(n - 1\right) s_j^2} \times \frac{1}{1 - R_j^2},\]</span> where <span class="math inline">\(R_j^2\)</span> is the R-squared statistic from regressing <span class="math inline">\(x_j\)</span> on the all the other predictors</p>
+<ul>
+<li><p>The quantity <span class="math inline">\(VIF_j = 1 / \left(1 - R_j^2\right)\)</span> is the VIF for predictor <span class="math inline">\(x_j\)</span></p></li>
+<li><p><span class="math inline">\(VIF_j\)</span> is a measure of the increase to <span class="math inline">\(var\left(\hat{\beta}_j\right)\)</span> due to collinearity with the other predictors</p></li>
+<li><p><span class="math inline">\(\sqrt{VIF_j}\)</span> describes the how much the typical CI for <span class="math inline">\(\beta_j\)</span> is expanded relative to similar, but uncorrelated data</p></li>
+<li><p>A more generalized VIF (GVIF) can be used when categorical variables are included in the model (more on this in <a href="">Lecture 5</a>)</p></li>
+</ul>
+
+<aside><div>
+<p>See <code>?car::vif</code> for details and further references</p>
+</div></aside></section>
+<section id="example-mlb-salary-data-17" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1"></a><span class="co"># Manually compute VIF for CRBI</span></span>
+<span id="cb27-2"><a href="#cb27-2"></a>CRBI.fit <span class="ot">&lt;-</span> <span class="fu">lm</span>(CRBI <span class="sc">~</span> CHits <span class="sc">+</span> Walks <span class="sc">+</span> Runs, <span class="at">data =</span> mlb)</span>
+<span id="cb27-3"><a href="#cb27-3"></a><span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">-</span> <span class="fu">summary</span>(CRBI.fit)<span class="sc">$</span>r.squared)  <span class="co"># 1 / (1 - R^2)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 10.04806</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1"></a><span class="co"># Use car package to get VIFs (or GVIFs) for all predictors</span></span>
+<span id="cb29-2"><a href="#cb29-2"></a>car<span class="sc">::</span><span class="fu">vif</span>(mlb.fit) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     CRBI     CHits     Walks      Runs 
+10.048058  9.777942  2.094864  1.957249 </code></pre>
+</div>
+</div>
+<p><br></p>
+<p><strong>Rough rule of thumb</strong>: predictor <span class="math inline">\(x_j\)</span> could be causing multicollinearity issues if <span class="math inline">\(VIF_j &gt; 10\)</span></p>
+</section>
+<section id="remedies-for-multicollinearity" class="slide level2">
+<h2>Remedies for multicollinearity</h2>
+<ul>
+<li><p>Omit some of the predictors</p></li>
+<li><p>Standardize the predictor column(s) (useful in polynomial models)</p></li>
+<li><p><a href="https://en.wikipedia.org/wiki/Principal_component_regression">Principal component analysis</a> (PCA) or, even better, <a href="https://en.wikipedia.org/wiki/Partial_least_squares_regression">partial least squares</a></p></li>
+<li><p><a href="https://bradleyboehmke.github.io/HOML/regularized-regression.html">Regularized regression</a> (<a href="http://hastie.su.domains/StatLearnSparsity/">the official book</a>)</p>
+<ul>
+<li><p>Ridge regression</p></li>
+<li><p>The LASSO</p></li>
+<li><p>The elastic net (i.e., ridge + LASSO penalties)</p></li>
+</ul></li>
+</ul>
+</section>
+<section id="example-mlb-salary-data-18" class="slide level2">
+<h2>Example: MLB salary data</h2>
+<div class="cell" data-layout-align="center" data-par="true">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1"></a><span class="fu">library</span>(glmnet)</span>
+<span id="cb31-2"><a href="#cb31-2"></a></span>
+<span id="cb31-3"><a href="#cb31-3"></a>X <span class="ot">&lt;-</span> <span class="fu">data.matrix</span>(mlb[, <span class="fu">c</span>(<span class="st">"CRBI"</span>, <span class="st">"CHits"</span>, <span class="st">"Walks"</span>, <span class="st">"Runs"</span>)])</span>
+<span id="cb31-4"><a href="#cb31-4"></a>mlb.ridge <span class="ot">&lt;-</span> <span class="fu">glmnet</span>(X, <span class="at">y =</span> mlb<span class="sc">$</span>Salary, <span class="at">alpha =</span> <span class="dv">0</span>)</span>
+<span id="cb31-5"><a href="#cb31-5"></a><span class="fu">plot</span>(mlb.ridge, <span class="at">label =</span> <span class="cn">TRUE</span>, <span class="at">xvar =</span> <span class="st">"norm"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="lecture-04-diagnostics_files/figure-revealjs/unnamed-chunk-25-1.png" style="width:70.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p><img src="images/uc.png" class="slide-logo"></p>
+<div class="footer footer-default">
+<p>BANA 7052: Applied Linear Regression</p>
+</div>
+</section></section>
+
+    </div>
+  </div>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script>
+  <script src="lecture-04-diagnostics_files/libs/revealjs/dist/reveal.js"></script>
+  <!-- reveal.js plugins -->
+  <script src="lecture-04-diagnostics_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.js"></script>
+  <script src="lecture-04-diagnostics_files/libs/revealjs/plugin/pdf-export/pdfexport.js"></script>
+  <script src="lecture-04-diagnostics_files/libs/revealjs/plugin/reveal-menu/menu.js"></script>
+  <script src="lecture-04-diagnostics_files/libs/revealjs/plugin/reveal-menu/quarto-menu.js"></script>
+  <script src="lecture-04-diagnostics_files/libs/revealjs/plugin/reveal-chalkboard/plugin.js"></script>
+  <script src="lecture-04-diagnostics_files/libs/revealjs/plugin/quarto-support/support.js"></script>
+  
+
+  <script src="lecture-04-diagnostics_files/libs/revealjs/plugin/notes/notes.js"></script>
+  <script src="lecture-04-diagnostics_files/libs/revealjs/plugin/search/search.js"></script>
+  <script src="lecture-04-diagnostics_files/libs/revealjs/plugin/zoom/zoom.js"></script>
+  <script src="lecture-04-diagnostics_files/libs/revealjs/plugin/math/math.js"></script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script>
+
+  <script>
+
+      // Full list of configuration options available at:
+      // https://revealjs.com/config/
+      Reveal.initialize({
+'controlsAuto': true,
+'previewLinksAuto': false,
+'smaller': false,
+'pdfSeparateFragments': false,
+'autoAnimateEasing': "ease",
+'autoAnimateDuration': 1,
+'autoAnimateUnmatched': true,
+'menu': {"side":"left","useTextContentForMissingTitles":true,"markers":false,"loadIcons":false,"custom":[{"title":"Tools","icon":"<i class=\"fas fa-gear\"></i>","content":"<ul class=\"slide-menu-items\">\n<li class=\"slide-tool-item active\" data-item=\"0\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.fullscreen(event)\"><kbd>f</kbd> Fullscreen</a></li>\n<li class=\"slide-tool-item\" data-item=\"1\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.speakerMode(event)\"><kbd>s</kbd> Speaker View</a></li>\n<li class=\"slide-tool-item\" data-item=\"2\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.overview(event)\"><kbd>o</kbd> Slide Overview</a></li>\n<li class=\"slide-tool-item\" data-item=\"3\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.overview(event)\"><kbd>e</kbd> PDF Export Mode</a></li>\n<li class=\"slide-tool-item\" data-item=\"4\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.toggleChalkboard(event)\"><kbd>b</kbd> Toggle Chalkboard</a></li>\n<li class=\"slide-tool-item\" data-item=\"5\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.toggleNotesCanvas(event)\"><kbd>c</kbd> Toggle Notes Canvas</a></li>\n<li class=\"slide-tool-item\" data-item=\"6\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.downloadDrawings(event)\"><kbd>d</kbd> Download Drawings</a></li>\n<li class=\"slide-tool-item\" data-item=\"7\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.keyboardHelp(event)\"><kbd>?</kbd> Keyboard Help</a></li>\n</ul>"}],"openButton":true},
+'chalkboard': {"buttons":true},
+'smaller': false,
+ 
+        // Display controls in the bottom right corner
+        controls: false,
+
+        // Help the user learn the controls by providing hints, for example by
+        // bouncing the down arrow when they first encounter a vertical slide
+        controlsTutorial: false,
+
+        // Determines where controls appear, "edges" or "bottom-right"
+        controlsLayout: 'edges',
+
+        // Visibility rule for backwards navigation arrows; "faded", "hidden"
+        // or "visible"
+        controlsBackArrows: 'faded',
+
+        // Display a presentation progress bar
+        progress: true,
+
+        // Display the page number of the current slide
+        slideNumber: 'c/t',
+
+        // 'all', 'print', or 'speaker'
+        showSlideNumber: 'all',
+
+        // Add the current slide number to the URL hash so that reloading the
+        // page/copying the URL will return you to the same slide
+        hash: true,
+
+        // Start with 1 for the hash rather than 0
+        hashOneBasedIndex: false,
+
+        // Flags if we should monitor the hash and change slides accordingly
+        respondToHashChanges: true,
+
+        // Push each slide change to the browser history
+        history: true,
+
+        // Enable keyboard shortcuts for navigation
+        keyboard: true,
+
+        // Enable the slide overview mode
+        overview: true,
+
+        // Disables the default reveal.js slide layout (scaling and centering)
+        // so that you can use custom CSS layout
+        disableLayout: false,
+
+        // Vertical centering of slides
+        center: false,
+
+        // Enables touch navigation on devices with touch input
+        touch: true,
+
+        // Loop the presentation
+        loop: false,
+
+        // Change the presentation direction to be RTL
+        rtl: false,
+
+        // see https://revealjs.com/vertical-slides/#navigation-mode
+        navigationMode: 'linear',
+
+        // Randomizes the order of slides each time the presentation loads
+        shuffle: false,
+
+        // Turns fragments on and off globally
+        fragments: true,
+
+        // Flags whether to include the current fragment in the URL,
+        // so that reloading brings you to the same fragment position
+        fragmentInURL: false,
+
+        // Flags if the presentation is running in an embedded mode,
+        // i.e. contained within a limited portion of the screen
+        embedded: false,
+
+        // Flags if we should show a help overlay when the questionmark
+        // key is pressed
+        help: true,
+
+        // Flags if it should be possible to pause the presentation (blackout)
+        pause: true,
+
+        // Flags if speaker notes should be visible to all viewers
+        showNotes: false,
+
+        // Global override for autoplaying embedded media (null/true/false)
+        autoPlayMedia: false,
+
+        // Global override for preloading lazy-loaded iframes (null/true/false)
+        preloadIframes: null,
+
+        // Number of milliseconds between automatically proceeding to the
+        // next slide, disabled when set to 0, this value can be overwritten
+        // by using a data-autoslide attribute on your slides
+        autoSlide: 0,
+
+        // Stop auto-sliding after user input
+        autoSlideStoppable: true,
+
+        // Use this method for navigation when auto-sliding
+        autoSlideMethod: null,
+
+        // Specify the average time in seconds that you think you will spend
+        // presenting each slide. This is used to show a pacing timer in the
+        // speaker view
+        defaultTiming: null,
+
+        // Enable slide navigation via mouse wheel
+        mouseWheel: false,
+
+        // The display mode that will be used to show slides
+        display: 'block',
+
+        // Hide cursor if inactive
+        hideInactiveCursor: true,
+
+        // Time before the cursor is hidden (in ms)
+        hideCursorTime: 5000,
+
+        // Opens links in an iframe preview overlay
+        previewLinks: false,
+
+        // Transition style (none/fade/slide/convex/concave/zoom)
+        transition: 'none',
+
+        // Transition speed (default/fast/slow)
+        transitionSpeed: 'default',
+
+        // Transition style for full page slide backgrounds
+        // (none/fade/slide/convex/concave/zoom)
+        backgroundTransition: 'none',
+
+        // Number of slides away from the current that are visible
+        viewDistance: 3,
+
+        // Number of slides away from the current that are visible on mobile
+        // devices. It is advisable to set this to a lower number than
+        // viewDistance in order to save resources.
+        mobileViewDistance: 2,
+
+        // The "normal" size of the presentation, aspect ratio will be preserved
+        // when the presentation is scaled to fit different resolutions. Can be
+        // specified using percentage units.
+        width: 1050,
+
+        height: 700,
+
+        // Factor of the display size that should remain empty around the content
+        margin: 0.1,
+
+        math: {
+          mathjax: 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js',
+          config: 'TeX-AMS_HTML-full',
+          tex2jax: {
+            inlineMath: [['\\(','\\)']],
+            displayMath: [['\\[','\\]']],
+            balanceBraces: true,
+            processEscapes: false,
+            processRefs: true,
+            processEnvironments: true,
+            preview: 'TeX',
+            skipTags: ['script','noscript','style','textarea','pre','code'],
+            ignoreClass: 'tex2jax_ignore',
+            processClass: 'tex2jax_process'
+          },
+        },
+
+        // reveal.js plugins
+        plugins: [QuartoLineHighlight, PdfExport, RevealMenu, RevealChalkboard, QuartoSupport,
+
+          RevealMath,
+          RevealNotes,
+          RevealSearch,
+          RevealZoom
+        ]
+      });
+    </script>
+    
+    <script>
+      // htmlwidgets need to know to resize themselves when slides are shown/hidden.
+      // Fire the "slideenter" event (handled by htmlwidgets.js) when the current
+      // slide changes (different for each slide format).
+      (function () {
+        function fireSlideChanged(previousSlide, currentSlide) {
+
+          // dispatch for htmlwidgets
+          const event = window.document.createEvent("Event");
+          event.initEvent("slideenter", true, true);
+          window.document.dispatchEvent(event);
+
+          // dispatch for shiny
+          if (window.jQuery) {
+            if (previousSlide) {
+              window.jQuery(previousSlide).trigger("hidden");
+            }
+            if (currentSlide) {
+              window.jQuery(currentSlide).trigger("shown");
+            }
+          }
+        }
+
+        // hookup for reveal
+        if (window.Reveal) {
+          window.Reveal.addEventListener("slidechanged", function(event) {
+            fireSlideChanged(event.previousSlide, event.currentSlide);
+          });
+        }
+
+        // hookup for slidy
+        if (window.w3c_slidy) {
+          window.w3c_slidy.add_observer(function (slide_num) {
+            // slide_num starts at position 1
+            fireSlideChanged(null, w3c_slidy.slides[slide_num - 1]);
+          });
+        }
+
+      })();
+    </script>
+
+    <script id="quarto-html-after-body" type="application/javascript">
+    window.document.addEventListener("DOMContentLoaded", function (event) {
+      const tabsets =  window.document.querySelectorAll(".panel-tabset-tabby")
+      tabsets.forEach(function(tabset) {
+        const tabby = new Tabby('#' + tabset.id);
+      });
+      const clipboard = new window.ClipboardJS('.code-copy-button', {
+        target: function(trigger) {
+          return trigger.previousElementSibling;
+        }
+      });
+      clipboard.on('success', function(e) {
+        // button target
+        const button = e.trigger;
+        // don't keep focus
+        button.blur();
+        // flash "checked"
+        button.classList.add('code-copy-button-checked');
+        var currentTitle = button.getAttribute("title");
+        button.setAttribute("title", "Copied!");
+        setTimeout(function() {
+          button.setAttribute("title", currentTitle);
+          button.classList.remove('code-copy-button-checked');
+        }, 1000);
+        // clear code selection
+        e.clearSelection();
+      });
+      function tippyHover(el, contentFn) {
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          maxWidth: 500,
+          delay: 100,
+          arrow: false,
+          appendTo: function(el) {
+              return el.closest('section.slide') || el.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto-reveal',
+          placement: 'bottom-start'
+        };
+          config['offset'] = [0,0];
+          config['maxWidth'] = 700;
+        window.tippy(el, config); 
+      }
+      const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+      for (var i=0; i<noterefs.length; i++) {
+        const ref = noterefs[i];
+        tippyHover(ref, function() {
+          let href = ref.getAttribute('href');
+          try { href = new URL(href).hash; } catch {}
+          const id = href.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          return note.innerHTML;
+        });
+      }
+      var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+      for (var i=0; i<bibliorefs.length; i++) {
+        const ref = bibliorefs[i];
+        const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+        tippyHover(ref, function() {
+          var popup = window.document.createElement('div');
+          cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    });
+    </script>
+    
+
+</body></html>

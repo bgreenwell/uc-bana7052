@@ -1,0 +1,901 @@
+---
+title: "Regression with categorical predictors and transformations"
+author: "Brandon M. Greenwell"
+institute: "University of Cincinnati"
+format: 
+  revealjs:
+    logo: images/uc.png
+    chalkboard: true
+    slide-number: true
+    scrollable: true
+    auto-play-media: false
+    footer: "BANA 7052: Applied Linear Regression"
+---
+
+## Main topics
+
+- Categorical predictors
+- Analysis of covariance (ANCOVA)
+- Transformations
+- Automated procedures (a quick note)
+
+```{r, setup}
+library(knitr)
+
+opts_chunk$set(
+  echo = TRUE,
+  dpi = 300,     
+  #fig.retina = 3,  
+  fig.align = "center",
+  fig.width = 6,
+  fig.asp = 0.618,
+  out.width = "100%",
+ # size = "small",
+  message = FALSE,
+  warning = FALSE,
+  error = FALSE
+)
+
+knit_hooks$set(
+  par = function(before, options, envir) {
+    if (before && options$fig.show != "none") {
+      par(
+        mar = c(4, 4, 0.1, 0.1), 
+        cex.lab = 0.95, 
+        cex.axis = 0.8,  # was 0.9
+        mgp = c(2, 0.7, 0), 
+        tcl = -0.3, 
+        las = 1
+      )
+      if (is.list(options$par)) {
+        do.call(par, options$par)
+      }
+    }
+  },
+  par2 = function(before, options, envir) {
+    if (before && options$fig.show != "none") {
+      par(
+        mar = c(4, 4, 1.2, 0.1), 
+        cex.lab = 0.95, 
+        cex.axis = 0.8,  # was 0.9
+        mgp = c(2, 0.7, 0), 
+        tcl = -0.3, 
+        las = 1
+      )
+      if (is.list(options$par)) {
+        do.call(par, options$par)
+      }
+    }
+  }
+)
+```
+
+
+## Required packages
+
+```{r packages}
+pkgs <- c(
+  "AmesHousing",  # for Ames, Iowa housing data
+  "ggplot2",      # for some of the graphics
+  "ISLR2",        # for the MLB salary data
+  "MASS"          # for boxcox() function
+)
+install <- setdiff(pkgs, installed.packages()[, "Package"])
+install.packages(install)
+
+library(ggplot2)
+
+theme_set(theme_bw())  # set ggplot2 theme for the lecture
+
+# Use a more colorblind-friendly color palette
+palette("Okabe-Ito")
+```
+
+
+## Learning more
+
+:::: {.columns}
+
+::: {.column width="50%"}
+* [An R Companion to Applied regression](https://socialsciences.mcmaster.ca/jfox/Books/Companion/index.html) (3rd ed.)
+
+  - Chapter 4: Fitting Linear Models
+  
+    * Section on "Factors in Linear Models"
+
+  - Chapter 8: Regression Diagnostics
+
+* The R package [car](https://cran.r-project.org/package=car)
+
+:::
+
+::: {.column width="50%"}
+![](images/rcar-book.jpeg){width=80%}
+
+:::
+
+::::
+
+
+## Learning more
+
+:::: {.columns}
+
+::: {.column width="50%"}
+* [Linear Models with R](https://julianfaraway.github.io/faraway/LMR/) (2nd ed.)
+
+  - Chapter 9: Transformation
+
+  - Chapter 14: Categorical Predictors
+  
+  - There's a [Python](https://www.python.org/) version of the book as well
+
+* The R package [faraway](https://cran.r-project.org/package=faraway)
+
+:::
+
+::: {.column width="50%"}
+![](images/lmr2-book.png){width=80%}
+
+:::
+
+::::
+
+
+# Categorical predictors
+
+
+## Categorical predictors
+
+* Also called [qualitative variables](https://en.wikipedia.org/wiki/Categorical_variable#:~:text=In%20statistics%2C%20a%20categorical%20variable,basis%20of%20some%20qualitative%20property.) or *factors* (in R)
+
+  - See `?factor` in R for details
+  
+* Categorical variables can take on a limited, and usually fixed number of possible values
+
+* We'll distinguish two types factors: 
+
+  1. Nominal: the categories have no natural order (e.g., **blood type**)
+  2. Ordered: the categories have a natural ordering (e.g., cold < warm < hot)
+
+
+## Categorical predictors
+
+* Categorical variables have to be numerically encoded in order to be used in a linear regression model
+
+* The distinction between nominal and ordered matters because we treat/encode each differently
+
+* There are lots of ways to encode categorical variables for linear regression, but most commonly
+
+  - Nominal categorical variables tend to get [dummy encoded](https://bradleyboehmke.github.io/HOML/engineering.html#one-hot-dummy-encoding)
+  - Ordered categorical variables tend to get encoded using [orthogonal polynomials]() (the default in R)
+
+
+## Dummy encoding
+
+```{r dummy-encoding, echo=FALSE, out.width="100%"}
+knitr::include_graphics("images/dummy-encoding.png")
+```
+
+
+## Dummy encoding
+
+```{r}
+(dow <- c("Fri", "Tue", "Thu", "Wed", "Mon", "Tue"))  # categorical
+(dow2 <- as.factor(dow))  # factor
+
+# R will handle dummy encoding for you
+df <- data.frame("length" = rnorm(6), "dow" = dow2)  # made up data
+model.matrix( ~ length + dow, data = df)
+```
+
+
+## Example: cutting tool data
+
+Suppose we want to relate the effective life of a cutting tool (`Hour`) used on a lathe to the lathe speed in revolutions per minute (`rpm`) and type of cutting tool used (`ToolType`).  
+
+```{r}
+url <- paste0("https://bgreenwell.github.io/",
+              "uc-bana7052/data/cutting_tool.csv")
+ctool <- read.csv(url, stringsAsFactors = TRUE)
+head(ctool, n = 10)  # print first 10 obs.
+```
+
+
+## Example: cutting tool data
+
+```{r}
+#| par: true
+plot(Hour ~ rpm, data = ctool, col = ctool$ToolType, pch = 19)
+legend("topright", legend = levels(ctool$ToolType), pch = 19,
+       col = 1:2, inset = 0.01, bty = "n")
+```
+
+
+## Example: cutting tool data
+
+```{r}
+#| par: true
+plot(Hour ~ rpm, data = ctool, col = ctool$ToolType, pch = 19)
+abline(lm(Hour ~ rpm, data = ctool), col = 3)
+legend("topright", legend = levels(ctool$ToolType), pch = 19,
+       col = 1:2, inset = 0.01, bty = "n")
+```
+
+
+## Example: cutting tool data
+
+```{r}
+#| par: true
+plot(Hour ~ rpm, data = ctool, col = ctool$ToolType, pch = 19)
+abline(lm(Hour ~ rpm, data = ctool, subset = ctool$ToolType == "A"), col = 1)
+abline(lm(Hour ~ rpm, data = ctool, subset = ctool$ToolType == "B"), col = 2)
+legend("topright", legend = levels(ctool$ToolType), pch = 19,
+       col = 1:2, inset = 0.01, bty = "n")
+```
+
+
+## Example: cutting tool data
+
+```{r}
+model.matrix(~ rpm + ToolType, data = ctool) |> head(20)  # first 20 obs
+```
+
+
+## Example: cutting tool data
+
+```{r}
+(ctool.fit1 <- lm(Hour ~ rpm + ToolType, data = ctool))
+```
+
+Two models (parallel lines) implied here: $$\hat{\mathtt{Hour}} = \begin{cases} 36.986 - 0.027\mathtt{rpm}, &\text{Tool type A} \\ \left(36.986 + 15.004\right) - 0.027\mathtt{rpm}, &\text{Tool type B} \end{cases}$$
+
+
+## Example: cutting tool data
+
+```{r}
+#| echo: false
+#| par: true
+b <- coef(ctool.fit1)
+plot(Hour ~ rpm, data = ctool, col = ctool$ToolType, pch = 19)
+abline(a = b[1], b = b[2], col = 3)
+abline(a = b[1] + b[3], b = b[2], col = 3)
+legend("topright", legend = levels(ctool$ToolType), pch = 19,
+       col = 1:2, inset = 0.01, bty = "n")
+```
+
+
+## Unequal slopes
+
+To allow for unequal "slopes" (i.e., non-parallel lines), we can include an [interaction effect](https://www.jmp.com/en_us/statistics-knowledge-portal/what-is-multiple-regression/mlr-with-interactions.html) (i.e., the product) between the qualitative and quantitative variables: $$Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_3 X_1 X_2 + \epsilon$$
+
+Note that interaction effects can occur between any type and any number of variables (e.g., think about a simple **polynomial regression** model!)
+
+
+## Example: cutting tool data
+
+```{r}
+# ctool.fit2 <- lm(Hour ~ rpm * ToolType, data = ctool)  # shortcut
+ctool.fit2 <- lm(Hour ~ rpm + ToolType + rpm:ToolType, data = ctool)
+summary(ctool.fit2)
+```
+
+
+## Orthogonal polynomial encoding
+
+* With ordered factors you can test/account for curvature
+
+* The details are beyond the scope of this class
+
+```{r}
+ames <- AmesHousing::make_ordinal_ames()
+plot(log(Sale_Price) ~ Overall_Qual, data = ames, col = 2)
+```
+
+
+# Analysis of covariance (ANCOVA) 
+
+
+## Analysis of covariance (ANCOVA)
+
+* In many statistical studies, the goal is to compare two or more groups in terms of a continuous response $y$ (e.g., the two-sample $t$-test or ANOVA)
+
+* Oftentimes, however, additional information in the form of a continuous variable $x$ may available to help in the comparison
+
+  - Ideally, $x$ will be correlated with $y$
+    
+* Our main interest lies in comparing the populations, but we would like to take into account the additional information contained in $x$ (called a *covariate*, in this case)
+
+
+## Example: fruit fly data {.smaller}
+
+**It has been established that increased reproduction reduces longevity in female fruit flies. A study was conducted to see if the same effect exists for male fruit flies** ([Hanley and Shapiro, 1994](http://jse.amstat.org/v2n1/datasets.hanley.html)). The experiment consisted of five groups: males forced to 
+
+1. live alone;
+2. to live with one pregnant female;
+3. to live with eight pregnant females;
+4. to live with one fertile female;
+5. to live with eight fertile females. 
+
+The response of interest is `lifespan` (measured in days). Variables also measured were `thorax` length (mm), and the percentage of each day spent sleeping. For our analysis, we will only focus on two groups: control group of males living with one pregnant female and an experiment group of males living with one fertile female; these are stored in the factor variable `group` with levels `"control"` and `"treatment"`. 
+
+
+## Example: fruit fly data
+
+```{r}
+#| par: true
+url <- "https://bgreenwell.github.io/uc-bana7052/data/fruitfly.csv"
+fruitfly <- read.csv(url, stringsAsFactors = TRUE)
+str(fruitfly)
+```
+
+
+## Example: fruit fly data
+
+```{r}
+#| echo: false
+ggplot(fruitfly, aes(x = thorax, y = lifespan, color = group)) +
+  geom_point(size = 2, alpha = 0.7) +
+  theme_bw() +
+  labs(x = "Thorax length (mm)", y = "Lifespan (days)") +
+  theme(legend.title = element_blank(), legend.position = c(0.1, 0.8))
+```
+
+
+## Example: fruit fly data
+
+```{r}
+# Two-sample t-test
+t.test(lifespan ~ group, data = fruitfly)
+
+# Linear model (equivalent)
+summary(lm(lifespan ~ group, data = fruitfly))
+```
+
+
+## Example: fruit fly data
+
+```{r}
+# Full model
+ff.fit1 <- lm(lifespan ~ thorax + group + thorax:group, 
+              data = fruitfly)
+
+# Print model summary
+summary(ff.fit1)
+```
+
+
+## Example: fruit fly data
+
+```{r}
+#| eval: false
+# Thorax only
+ff.fit2 <- lm(lifespan ~ thorax, data = fruitfly)
+
+# Print model summary
+summary(ff.fit2)
+
+# Compare models
+anova(ff.fit2, ff.fit1)
+```
+
+
+## Example: fruit fly data
+
+```{r}
+#| echo: false
+# Thorax only
+ff.fit2 <- lm(lifespan ~ thorax, data = fruitfly)
+
+# Print model summary
+summary(ff.fit2)
+
+# Compare models
+anova(ff.fit2, ff.fit1)
+```
+
+
+## Example: fruit fly data
+
+```{r}
+#| eval: false
+# Parallel regression lines
+ff.fit3 <- lm(lifespan ~ thorax + group, data = fruitfly)
+
+# Print model summary
+summary(ff.fit3)
+
+# Compare models
+anova(ff.fit3, ff.fit1)
+```
+
+
+## Example: fruit fly data
+
+```{r}
+#| echo: false
+# Parallel regression lines
+ff.fit3 <- lm(lifespan ~ thorax + group, data = fruitfly)
+
+# Print model summary
+summary(ff.fit3)
+
+# Compare models
+anova(ff.fit3, ff.fit1)
+```
+
+
+## Example: fruit fly data
+
+```{r}
+#| echo: false
+library(lattice)
+
+xyplot(lifespan ~ thorax, groups = group, data = fruitfly, pch = 19, 
+       alpha = 0.5, type = c("p", "r"), xlab = "Thorax length (mm)",
+       ylab = "Lifespan (days)", auto.key = list(corner = c(0, 1)))
+```
+
+
+# Transformations
+
+
+## Variance stabilizing transformations
+
+* Homoscedasticity is often violated when the variance is functionally related to the mean ($E\left(Y|\boldsymbol{x}\right) = \boldsymbol{x}^\top\boldsymbol{\beta}$)
+
+  - If not satisfied, the estimated regression coefficients will have larger standard errors (i.e., less precision)
+
+* Applying a transformation to the response may alleviate the problem
+
+* While subject matter expertise and prior knowledge can be used to help select an appropriate transformation, such transformation are typically selected **empirically**
+
+
+---
+
+```{r}
+#| echo: false
+set.seed(101)
+n <- 100
+x <- runif(n, min = 1, max = 5)
+y <- 1 + 4*x + rnorm(n, sd = x)
+df <- data.frame("x" = x, "y" = y)
+fit <- lm(y ~ x, data = df)
+df$r <- residuals(fit)
+df$f <- fitted(fit)
+ggplot(df, aes(f, r)) +
+  geom_point(alpha = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = "Fitted value", y = "Residual", 
+       title = "Error variance increases with E(Y|x)") +
+  theme_light()
+```
+
+
+## Common transformations
+
+|  Relationship between $\sigma^2$ and $E\left(Y\right) = E\left(Y|\boldsymbol{x}\right)$ | Transformation |
+|:--|:--|
+| $\sigma^2 \propto \text{constant}$ | $Y^\star = Y$ |
+| $\sigma^2 \propto E\left(Y\right)$ | $Y^\star = \sqrt{Y}$ |
+| $\sigma^2 \propto E\left(Y\right)\left[1 - E\left(Y\right)\right]$ | $Y^\star = \sin^{-1}\left(\sqrt{Y}\right)$ |
+| $\sigma^2 \propto \left[E\left(Y\right)\right]^2$ | $Y^\star = Y^{-1/2}$ |
+| $\sigma^2 \propto \left[E\left(Y\right)\right]^3$ | $Y^\star = Y$ |
+| $\sigma^2 \propto \left[E\left(Y\right)\right]^4$ | $Y^\star = Y^{-1}$ |
+
+
+
+## Example: electricity demand
+
+An electric utility is investigating the effect of the size of a single-family house and the type of air conditioning used in the house on the total electricity consumption during warm weather months
+
+```{r utility-01}
+# Load the utility data
+url <- paste0("https://bgreenwell.github.io/",
+              "uc-bana7052/data/utility.csv")
+utility <- read.csv(url)
+head(utility, n = 5)  # print first 5 observations 
+```
+
+
+## Example: electricity demand
+
+```{r utility-02, eval=FALSE}
+#| eval: false
+# Scatterplot
+plot(Demand ~ Usage, data = utility, pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5))
+
+# Add fitted regression line
+abline(fit <- lm(Demand ~ Usage, data = utility), lwd = 2,
+       col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: electricity demand
+
+```{r}
+#| echo: false
+#| par: true
+# Scatterplot
+plot(Demand ~ Usage, data = utility, pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5))
+
+# Add fitted regression line
+abline(fit <- lm(Demand ~ Usage, data = utility), lwd = 2, 
+       col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Which transformation(s) should we try?
+
+```{r}
+#| echo: false
+#| par: true
+# Residual plots
+# par(mfrow = c(1, 2))
+plot(
+  x = fitted(fit), 
+  y = rstudent(fit),
+  pch = 19,
+  las = 1,
+  col = adjustcolor(1, alpha.f = 0.5),
+  xlab = "Fitted value",
+  ylab = "Studentized residual"
+)
+abline(h = 0, lty = 2, col = 2)
+# plot(
+#   x = utility$Usage, 
+#   y = residuals(fit),
+#   pch = 19,
+#   las = 1,
+#   col = adjustcolor("darkblue", alpha.f = 0.5),
+#   xlab = "Usage (KWH)",
+#   ylab = "Residual"
+# )
+# abline(h = 0, lty = 2)
+```
+
+
+## Example: electricity demand
+
+Let's try a square-root transformation! In R, you can usually transform the response right in the model formula:
+
+```{r}
+#| eval: false
+# Scatterplot
+plot(sqrt(Demand) ~ Usage, data = utility, pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5))
+
+# Add fitted regression line
+abline(fit <- lm(sqrt(Demand) ~ Usage, data = utility), 
+       lwd = 2, col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: electricity demand
+
+```{r}
+#| echo: false
+#| par: true
+# Scatterplot
+plot(sqrt(Demand) ~ Usage, data = utility, pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5))
+
+# Add fitted regression line
+abline(fit <- lm(sqrt(Demand) ~ Usage, data = utility), 
+       lwd = 2, col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: electricity demand
+
+```{r}
+#| echo: false
+#| par: true
+# Residual plots
+# par(mfrow = c(1, 2))
+plot(
+  x = fitted(fit), 
+  y = rstudent(fit),
+  pch = 19,
+  las = 1,
+  col = adjustcolor(1, alpha.f = 0.5),
+  xlab = "Fitted value",
+  ylab = "Studentized residual"
+)
+abline(h = 0, lty = 2, col = 2)
+# plot(
+#   x = utility$Usage, 
+#   y = residuals(fit),
+#   pch = 19,
+#   las = 1,
+#   col = adjustcolor("darkblue", alpha.f = 0.5),
+#   xlab = "Usage (KWH)",
+#   ylab = "Residual"
+# )
+# abline(h = 0, lty = 2)
+```
+
+
+## Box-Cox procedure
+
+* Suppose that we wish to transform $Y$ to correct for non-normality and/or non-constant variance (i.e., heteroscedasticity)
+
+* A useful class of transformations is the power transformation, $Y^\lambda$ where $\lambda$ is a parameter to be estimated from the data
+
+* The parameters of the regression model and $\lambda$ can be estimated simultaneously using the method of maximum likelihood estimation
+
+
+## Box-Cox procedure
+
+* The [Box-Cox transformation](https://en.wikipedia.org/wiki/Power_transform) uses $$Y_i^{\left(\lambda\right)} = \begin{cases} \frac{Y_i^\lambda - 1}{\lambda}, & \quad \lambda \ne 0 \\ \ln\left(Y_i\right), & \quad \lambda = 0 \end{cases}$$
+
+* The model to be fit is $$Y_i^{\left(\lambda\right)} = \beta_0 + \beta_1 X_{i1} + \dots + \beta_{p-1} X_{i, p-1} + \epsilon_i$$
+
+* In R, you can use [MASS::boxcox()](https://www.rdocumentation.org/packages/MASS/versions/7.3-50/topics/boxcox) or [car::boxCox()](https://www.rdocumentation.org/packages/car/versions/2.1-4/topics/boxCox) to find the "optimal" value of $\lambda$
+
+
+## Example: electricity demand
+
+```{r}
+#| par: true
+# Find optimal lambda value via ML estimation
+bc <- MASS::boxcox(Demand ~ Usage, data = utility)
+(lambda <- bc$x[which.max(bc$y)])
+```
+
+
+## Example: electricity demand
+
+```{r}
+#| eval: false
+# Scatterplot and fitted model
+utility$Demand2 <- (utility$Demand ^ lambda - 1) / lambda
+plot(Demand2 ~ Usage, data = utility, pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5))
+
+# Add fitted regression line
+abline(fit <- lm(Demand2 ~ Usage, data = utility), lwd = 2,
+       col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: electricity demand
+
+```{r}
+#| echo: false
+#| par: true
+# Scatterplot and fitted model
+utility$Demand2 <- (utility$Demand ^ lambda - 1) / lambda
+plot(Demand2 ~ Usage, data = utility, pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5))
+
+# Add fitted regression line
+abline(fit <- lm(Demand2 ~ Usage, data = utility), lwd = 2,
+       col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: electricity demand
+
+```{r boxcox-03, fig.wdith=7, fig.asp=0.5, out.width="100%"}
+#| par: true
+par(mfrow = c(1, 2))  # side-by-side plots
+plot(fit, which = 1:2)
+```
+
+
+## Transformations to linearize the model
+
+* Nonlinearity may be detected via plots or a *lack-of-fit* test 
+
+* If a transformation of a nonlinear function can result in a linear function we say it is *intrinsically linear* or *transformably linear*; for example: 
+
+$$\begin{align}Y &= \beta_0\exp{\left(\beta_1 X\right)}\epsilon \\ \implies \ln{Y} &= \ln{\beta_0} + \beta_1 X + \epsilon^\star \\ \implies Y^\star &= \beta_0^\star + \beta_1 X + \epsilon^\star\end{align}$$ 
+
+
+## Transformations to linearize the model
+
+```{r}
+#| echo: false
+curve(log10(x), xlab = "X", ylab = "Y", main = "General trend", 
+      lwd = 10, axes = FALSE, lend = 2)
+axis(1, labels = FALSE, tick = TRUE)
+axis(2, labels = FALSE, tick = TRUE)
+```
+
+Suggested transformation(s): $X^\star = \log_{10}\left(X\right)$ or $X^\star = \sqrt{X}$
+
+
+## Transformations to linearize the model
+
+```{r}
+#| echo: false
+curve(x^2, xlab = "X", ylab = "Y", main = "General trend", 
+      lwd = 10, axes = FALSE, lend = 2)
+axis(1, labels = FALSE, tick = TRUE)
+axis(2, labels = FALSE, tick = TRUE)
+```
+
+Suggested transformation(s): $X^\star = X^2$ or $X^\star = \exp{\left(X\right)}$
+
+
+## Transformations to linearize the model
+
+```{r}
+#| echo: false
+curve(1/x, xlab = "X", ylab = "Y", main = "General trend", 
+      lwd = 10, axes = FALSE, xlim = c(0.1, 0.5), lend = 2)
+axis(1, labels = FALSE, tick = TRUE)
+axis(2, labels = FALSE, tick = TRUE)
+```
+
+Suggested transformation(s): $X^\star = 1/X$ or $X^\star = \exp{\left(-X\right)}$
+
+
+## Example: MLB salary data
+
+The MLB salary data introduced in [Lecture 4]() violates many classical assumptions, like linearity, normality, and constant variance. (Just go back and look at the residual plots we constructed for our initial model.) Can you fix some of the issues using simple transformations? [Hoaglin and Velleman (1995)](https://www.tandfonline.com/doi/abs/10.1080/00031305.1995.10476165) proposed the following model continuous three-segment regression model: $$\log\left(\mathtt{Salary}\right) = \beta_0 + \beta_1 \mathtt{CRuns} / \mathtt{Years} + \beta_2\sqrt{\mathtt{Runs}} + \\\beta_3 \min\left[\left(\mathtt{Years} - 2\right)_{+}, 5\right] + \beta_4\left(\mathtt{Years} - 7\right)_{+}$$
+
+::: aside
+See [this paper](https://www3.stat.sinica.edu.tw/statistica/oldpdf/A12n21.pdf) for an interesting tree-based analysis `r set.seed(101); emo::ji('tree')`
+:::
+
+
+## Example: windmill data
+
+A research engineer is investigating the use of a windmill to generate electricity and has collected data on the DC output from this windmill (`Output`) and the corresponding wind velocity (`Velocity`).
+
+```{r windmill-01}
+# Load the windmill data
+url <- paste0("https://bgreenwell.github.io/",
+              "uc-bana7052/data/windmill.csv")
+windmill <- read.csv(url)
+head(windmill, n = 5)  # print first 5 observations 
+```
+
+
+## Example: windmill data
+
+```{r windmill-02, eval=FALSE}
+#| eval: false
+# Scatterplot
+plot(Output ~ Velocity, data = windmill, pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5),
+     xlab = "Wind velocity", ylab = "DC output",
+     main = "Original data")
+
+# Add fitted regression line
+abline(fit <- lm(Output ~ Velocity, data = windmill), lwd = 2,
+       col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: windmill data
+
+```{r}
+#| echo: false
+# Scatterplot
+plot(Output ~ Velocity, data = windmill, pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5),
+     xlab = "Wind velocity", ylab = "DC output",
+     main = "Original data")
+
+# Add fitted regression line
+abline(fit <- lm(Output ~ Velocity, data = windmill), lwd = 2,
+       col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: windmill data
+
+```{r windmill-04, eval=FALSE}
+#| eval: false
+# Residual plot
+plot(fitted(fit), rstudent(fit), pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5),
+     xlab = "Fitted value", ylab = "Studentized residual",
+     main = "Original data")
+abline(h = 0, lty = 2, col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: windmill data
+
+```{r}
+#| echo: false
+# Residual plot
+plot(fitted(fit), rstudent(fit), pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5),
+     xlab = "Fitted value", ylab = "Studentized residual",
+     main = "Original data")
+abline(h = 0, lty = 2, col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: windmill data
+
+```{r}
+#| eval: false
+# Scatterplot
+plot(Output ~ I(1/Velocity), data = windmill, pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5),
+     xlab = "1 / (Wind velocity)", ylab = "DC output",
+     main = "Transformed data")
+
+# Add fitted regression line
+abline(fit <- lm(Output ~ I(1/Velocity), data = windmill), lwd = 2,
+       col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: windmill data
+
+```{r}
+#| echo: false
+# Scatterplot
+plot(Output ~ I(1/Velocity), data = windmill, pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5),
+     xlab = "Wind velocity", ylab = "DC output",
+     main = "Transformed data")
+
+# Add fitted regression line
+abline(fit <- lm(Output ~ I(1/Velocity), data = windmill), lwd = 2,
+       col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: windmill data
+
+```{r}
+#| eval: false
+# Residual plot
+plot(fitted(fit), rstudent(fit), pch = 19, las = 1,  
+     col = adjustcolor(1, alpha.f = 0.5),
+     xlab = "Fitted value", ylab = "Studentized residual",
+     main = "Transformed data")
+abline(h = 0, lty = 2, col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: windmill data
+
+```{r}
+#| echo: false
+# Residual plot
+plot(fitted(fit), rstudent(fit), pch = 19, las = 1,
+     col = adjustcolor(1, alpha.f = 0.5),
+     xlab = "Fitted value", ylab = "Studentized residual",
+     main = "Transformed data")
+abline(h = 0, lty = 2, col = adjustcolor(2, alpha.f = 0.5))
+```
+
+
+## Example: windmill data
+
+```{r}
+summary(fit)
+```
+
+
+## Warning RE transformations
+
+`r emo::ji("warning")``r emo::ji("warning")``r emo::ji("warning")`
+
+The estimated coefficients still have the same properties, but only with respect to the transformed data, not the original data!
+
+`r emo::ji("warning")``r emo::ji("warning")``r emo::ji("warning")`
+
+
+# Automated procedures (a quick note)
+
+
+## Automated procedures (a quick note) {.smaller}
+
+* [Alternating conditional expectations (ACE)](https://en.wikipedia.org/wiki/Alternating_conditional_expectations): uses the *alternating conditional expectations* algorithm to find the transformations of $Y$ and $X$ that maximize the proportion of variation in $Y$ explained by $X$ (see R package [acepack](https://cran.r-project.org/package=acepack))
+
+* [Additivity and variance stabilization for regression (AVAS)](https://www.tandfonline.com/doi/abs/10.1080/01621459.1988.10478610): estimates transformations of $X$ and $Y$ such that the regression of $Y$ on $X$ is approximately linear with constant variance (see R package [acepack](https://cran.r-project.org/package=acepack))
+
+* [Multivariate adaptive regression splines (MARS)](https://en.wikipedia.org/wiki/Multivariate_adaptive_regression_spline): piecewise linear splines approach to multiple linear regression that automatically models nonlinearities and interactions between variables (see R package [earth](https://cran.r-project.org/package=earth))
+

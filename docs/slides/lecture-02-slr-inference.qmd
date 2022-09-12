@@ -1,0 +1,687 @@
+---
+title: "Classical Inference with the Simple Linear Regression Model"
+author: "Brandon M. Greenwell"
+institute: "University of Cincinnati"
+format: 
+  revealjs:
+    logo: images/uc.png
+    chalkboard: true
+    slide-number: true
+    scrollable: true
+    auto-play-media: false
+    footer: "BANA 7052: Applied Linear Regression"
+---
+
+## Main topics
+
+- Inference concerning $\beta_1$
+- Analysis of variance (ANOVA) decomposition
+- Estimation vs. prediction
+- The coefficient of determination ($R^2$)
+
+```{r, setup}
+library(knitr)
+
+opts_chunk$set(
+  echo = TRUE,
+  dpi = 300,     
+  #fig.retina = 3,  
+  fig.align = "center",
+  fig.width = 6,
+  fig.asp = 0.618,
+  out.width = "100%",
+ # size = "small",
+  message = FALSE,
+  warning = FALSE,
+  error = FALSE
+)
+
+knit_hooks$set(
+  par = function(before, options, envir) {
+    if (before && options$fig.show != "none") {
+      par(
+        mar = c(4, 4, 0.1, 0.1), 
+        cex.lab = 0.95, 
+        cex.axis = 0.8,  # was 0.9
+        mgp = c(2, 0.7, 0), 
+        tcl = -0.3, 
+        las = 1
+      )
+      if (is.list(options$par)) {
+        do.call(par, options$par)
+      }
+    }
+  }
+)
+```
+
+
+## Required packages
+
+```{r packages}
+pkgs <- c(
+  "ggplot2",  # for fancy graphics
+  "investr"   # for plotFit() function
+)
+install <- setdiff(pkgs, installed.packages()[, "Package"])
+install.packages(install)
+
+library(ggplot2)
+
+theme_set(theme_bw())  # set ggplot2 theme for the lecture
+```
+
+
+## Learning more
+
+:::: {.columns}
+
+::: {.column width="50%"}
+* [Computer Agre Statistical Inference](https://hastie.su.domains/CASI/) (free to read online!)
+
+  - Part I (i.e., chapters 1--5)
+
+* The R packages [car](https://cran.r-project.org/package=boot) and [boot](https://cran.r-project.org/package=boot)
+
+  - [Boostrap Methods and their Applications](https://www.amazon.com/Bootstrap-Application-Statistical-Probabilistic-Mathematics/dp/0521574714)
+
+:::
+
+::: {.column width="50%"}
+![](images/casi-book.jpeg){width=80%}
+
+:::
+
+::::
+
+
+# Inference concerning $\beta_1$
+
+
+## Is there a "relationship" between $X$ and $Y$?
+
+```{r relationship-01}
+#| echo: false
+set.seed(101)
+x <- rep(1:5, each = 10)
+y <- 1 + 1*x + rnorm(length(x), sd = 3)
+ggplot(data.frame(x, y), aes(x, y)) +
+  geom_point() +
+  labs(x = "X", y = "Y")
+```
+
+
+## Is there a "relationship" between $X$ and $Y$?
+
+```{r relationship-02}
+#| echo: false
+set.seed(101)
+x <- rep(1:5, each = 10)
+y <- 1 + 1*x + rnorm(length(x), sd = 3)
+ggplot(data.frame(x, y), aes(x, y)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, col = "red2") +
+  labs(x = "X", y = "Y")
+```
+
+
+## Is there a "relationship" between $X$ and $Y$?
+
+```{r relationship-03}
+#| echo: false
+set.seed(101)
+x <- rep(1:5, each = 10)
+y <- 1 + 1*x + rnorm(length(x), sd = 3)
+ggplot(data.frame(x, y), aes(x, y)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x, se = TRUE, col = "red2") +
+  labs(x = "X", y = "Y")
+```
+
+
+## Inferences concerning $\beta_1$
+
+* **Bad:** Is there a relationship between $X$ and $Y$? (not testable)
+
+. . .
+
+* **Good:** Is there a statistically significant linear relationship between $X$ and $Y$ at the $\alpha = 0.05$ level? (testable)
+
+. . .
+
+* How can we reformulate this as a statistical test?
+
+. . .
+
+$$
+H_0: \beta_1 = 0 \quad vs \quad H_1: \beta_1 \ne 0
+$$
+
+. . .
+
+* Need a *point estimate*, *test statistic*, and *reference distribution*!
+
+## Properties of $\hat{\beta}_1$
+
+<br>
+
+What does it mean for a parameter estimate to be *unbiased*? `r emo::ji("thinking")`
+
+. . .
+
+<br>
+
+Let's demonstrate with a quick simulation in R!
+
+---
+
+```{r simulation-01}
+# Simulate data; here Y = 1 + 10X + error
+n <- 100
+set.seed(8451)
+x <- runif(n, min = 0, max = 10)
+# y <- 1 + 10*x + rnorm(n, mean = 0, sd = 10)  # equivalent
+y <- rnorm(n, mean = 1 + 10*x, sd = 10)
+
+# Fit an SLR model
+fit <- lm(y ~ x)
+coef(fit)
+```
+
+---
+
+```{r simulation-02, par=TRUE}
+# Plot the results
+plot(x, y)
+abline(fit, lwd = 2, col = "red2")
+```
+
+---
+
+```{r simulation-03, cache=TRUE}
+# Run simulation
+set.seed(8451)
+sim <- t(replicate(10000, expr = {
+  x <- runif(n = 100, min = 0, max = 10)
+  y <- rnorm(n = 100, mean = 1 + 10*x, sd = 10)
+  coef(lm(y ~ x))
+}))
+
+# Sample means
+apply(sim, MARGIN = 2, FUN = mean)
+
+# Sample standard deviations
+apply(sim, MARGIN = 2, FUN = sd)
+```
+
+---
+
+```{r simulation-04}
+# Sampling distribution
+hist(sim[, 2], br = 50, fr = FALSE, col = "gray30", border = "white", 
+     las = 1, xlab = expression(hat(beta)[1]),
+     main = expression(paste("Sampling distribution of ", hat(beta)[1])))
+abline(v = 10, lwd = 3, col = "red2")
+```
+
+
+## Properties of $\hat{\beta}_1$
+
+* Recall from the previous lecture that LS estimation provides the best linear unbiased (BLU) estimates of $\beta_0$ and $\beta_1$; namely, $\hat{\beta}_0$ and $\hat{\beta}_1$
+
+    - Unbiased since $E\left[\hat{\beta}_0\right] = \beta_0$ and $E\left[\hat{\beta}_1\right] = \beta_1$
+
+    - Best in the sense that $\hat{\beta}_0$ and $\hat{\beta}_1$ have the **smallest variance** among all other **linear unbiased** estimators of $\beta_0$ and $\beta_1$, respectively
+
+. . .
+
+So what is $Var\left[\hat{\beta}_0\right]$ and $Var\left[\hat{\beta}_1\right]$?
+
+
+## Properties of $\hat{\beta}_1$
+
+* Recall that the LS estimate of the slope is a weighted average of the (observed) response values: $\hat{\beta}_1 = \sum_{i=1}^n w_iY_i$ 
+
+. . .
+
+* Since the $Y_i$ are independent, it follows that 
+
+$$Var\left(\hat{\beta}_1\right) = Var\left(\sum_{i=1}^n w_iY_i\right) = \dots = \sigma^2 / S_{xx}$$
+
+
+## Sampling distribution of $\hat{\beta}_1$
+
+* Assuming $\epsilon_i \stackrel{iid}{\sim} N\left(0, \sigma^2\right)$, then $\hat{\beta}_1 \sim \hat{\beta}_1 \sim N\left(\beta_1, \sigma^2/S_{xx}\right)$
+
+. . .
+
+* But we generally don't know $\sigma^2$, so how do we estimate it?
+
+* Replace $\sigma^2$ with its point estimate $\hat{\sigma}^2 = MSE$
+
+. . .
+
+What is the distribution of $\frac{\hat{\beta}_1 - \beta_1}{\hat{\sigma} / \sqrt{S_{xx}}}$?
+
+
+## Standard errors
+
+* The standard deviation of an estimate is referred to as its *standard error*. For example,
+
+$$SE\left(\hat{\beta}_1\right) = \sqrt{Var\left(\hat{\beta}_1\right)} = \sigma/\sqrt{S_{xx}}$$
+
+. . .
+
+* Since we don't know $\sigma^2$, we estimate $SE\left(\hat{\beta}_1\right)$ with its *plug-in* estimate
+
+$$\hat{SE}\left(\hat{\beta}_1\right) = \hat{\sigma}/\sqrt{S_{xx}}$$
+
+
+## Inference concerning $\beta_1$
+
+* Hypothesis test: $H_0: \beta_1 = c \quad vs. \quad H_1: \beta_1 \ne c$
+
+. . .
+
+* Test statistic: $$t_{obs} = \frac{\hat{\beta}_1 - c}{\hat{SE}\left(\hat{\beta}_1\right)} = \frac{\hat{\beta}_1 - c}{\hat{\sigma} / \sqrt{S_{xx}}}$$
+
+. . .
+
+* Reject $H_0$ whenever $\left|t_{obs}\right| \ge t_{n - 2, 1 - \alpha/2}$
+
+```{r qt}
+# Computing t quantile in R
+alpha <- 0.05           # significance level
+n <- 30                 # sample size         
+qt(1 - alpha/2, df = n - 2)  # cutoff value        
+```
+
+
+## Inference concerning $\beta_1$
+
+<br><br>
+
+The classic $\left(1-\alpha\right)$ 100% confidence interval for $\beta_1$ is given by $$\hat{\beta}_1 \pm t_{n - 2, 1 - \alpha/2}\hat{\sigma}/\sqrt{S_{xx}}$$
+
+* Confidence intervals (CIs) provide a range of plausible values
+
+* There are better/more accurate ways of computing a CI for a parameter of interest (e.g., the [nonparametric bootstrap](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)))
+
+
+## Example: rocket propellant data
+
+A rocket motor is manufactured by bonding an igniter propellant and a sustainer propellant together inside a metal housing. The shear strength of the bond ( $Y$ ) between the two types of propellant is an important quality characteristic. It is suspected that the shear strength is related to the age ( $X$ ) of the batch of sustainer propellant. $n = 20$ observations on shear strength (measured in psi) and age (measured in weeks) are available in the file [rocket.csv](https://bgreenwell.github.io/uc-bana7052/data/rocket.csv).
+
+
+## Example: rocket propellant data
+
+```{r rocket-load}
+# Load the rocket propellant data
+url <- "https://bgreenwell.github.io/uc-bana7052/data/rocket.csv"
+rocket <- read.csv(url)
+head(rocket, n = 10)  # print first 10 rows
+```
+
+
+## Example: rocket propellant data 
+
+```{r rocket-slr}
+# Load required packages
+library(investr)
+
+# Fit an SLR model
+rocket_fit <- lm(strength ~ age, data = rocket)
+
+# Plot the data with the fitted mean response
+plotFit(rocket_fit, lwd.fit = 2, 
+        col.fit = "red2", pch = 19)
+```
+
+
+## Example: rocket propellant data
+
+```{r rocket-slr-summary}
+# Print a summary of the fitted model
+summary(rocket_fit)
+```
+
+## Example: rocket propellant data
+
+```{r rocket-slr-confint}
+# Compute a 95% CI for the slope (the coefficient of age)
+confint(rocket_fit, parm = "age", level = 0.95)
+```
+
+. . .
+
+<br>
+
+Can you interpret this interval?
+
+. . .
+
+<br>
+
+With 95% confidence, we estimate that the mean strength of rockets **decreases** between 31.08 psi and 43.22 psi for every one-week increase in age.
+
+
+## Rule of thumb `r set.seed(101); emo::ji("thumb")`
+
+Using $Estimate \pm 2 \times SE$ for an approximate 95% CI is incredibly robust!
+
+. . .
+
+<br>
+
+```{r robust}
+# Why is that?
+sapply(c(10, 20, 30, 50, Inf), FUN = function(x) {
+  qt(0.975, df = x)
+})                        
+```
+
+
+## Example: rocket propellant data
+
+Using the rocket propellant data, test whether the slope significantly differs from $-40$ psi/week at the $\alpha = 0.1$ level.
+
+
+## Example: rocket propellant data
+
+```{r rocket-slope-test-01}
+# Compute a 90% CI for the slope
+confint(rocket_fit, parm = "age", level = 0.9)
+```
+
+Since the resulting 90% CI contains -40, we'd fail to reject the null hypothesis at the $\alpha = 0.1$ level (i.e., the hypothesized value is within the range of plausible values).
+
+
+# Analysis of variance (ANOVA) decomposition
+
+
+---
+
+Consider the following hypotheses for the SLR model: $$H_0: \beta_1 = 0 \quad vs \quad H_1: \beta_1 \ne 0$$
+
+What does failing to reject $H_0$ imply about the relationship between $X$ and $Y$?
+
+
+## ANOVA decomposition
+
+What does ANOVA refer to? `r emo::ji("thinking")`
+
+. . .
+
+Partitioning sums of squares (SS):
+
+* Total sum of squares: $SST = \sum_{i=1}^n\left(Y_i - \bar{Y}\right)^2$
+    
+* Error sum of squares: $SSE = \sum_{i=1}^n\left(Y_i - \hat{Y}_i\right)^2$
+    
+* Regression sum of squares: $SSR = \sum_{i=1}^n\left(\hat{Y}_i - \bar{Y}\right)^2$
+    
+    
+The total response variance can be partitioned into two components!
+
+
+## ANOVA decomposition
+
+Noting that $\left(Y_i - \bar{Y}\right) = \left(\hat{Y}_i - \bar{Y}\right) + \left(Y_i - \hat{Y}_i\right)$, it's (relatively) easy to show that the sums of these squared deviations have the same relationship: $$\sum_{i=1}^n\left(Y_i - \bar{Y}\right)^2 = \sum_{i=1}^n\left(\hat{Y}_i - \bar{Y}\right)^2 + \sum_{i=1}^n\left(Y_i - \hat{Y}_i\right)^2$$
+
+<br>
+
+::: aside
+In other words, $SST = SSR + SSE$ (**much like in a one-way ANOVA**)
+:::
+
+
+## ANOVA decomposition
+
+* Diving an SS by its associated *degrees of freedom* (df) produces mean squares (**kind of like a standard deviation**)
+
+. . .
+
+* $MSR = \frac{SSR}{1}$
+
+* $MSE = \frac{SSE}{n - 2}$
+
+
+---
+
+Is there a (linear) relationship between $X$ and $Y$? $$H_0: \beta_1 = 0 \quad vs \quad H_1: \beta_1 \ne 0$$
+
+
+## ANOVA decomposition
+
+* Test statistic: $$F_{obs} = \frac{MSR}{MSE}$$ with 1 numerator DF and $n-2$ denominator DF
+
+. . .
+
+* Reject $H_0$ at the $\alpha$ level whenever $F_{obs} > F_{1-\alpha, 1, n-2}$
+
+    - Notice the use of $\alpha$ as opposed to $\alpha/2$ `r emo::ji("thinking")`
+    
+    - Is a large value of $F_{obs}$ good or bad?
+
+
+## Example: rocket propellant data 
+
+```{r rocket-anova}
+# Compute ANOVA table for the fitted model
+anova(rocket_fit)  #<<
+# Print summary of fitted model
+summary(rocket_fit)
+```
+
+
+## F or t?
+
+* For every two-sided *t*-test, there is a corresponding *F*-test
+
+  - $t_{obs}^2 = F_{obs}$
+
+. . .
+
+* In the SLR model, these the approaches are equivalent 
+
+  - The *F*-test becomes useful when we start adding more predictors (i.e., in multiple linear regression)
+
+
+## The general linear (*F*) test
+
+* Full model: $Y_i = \beta_0 + \beta_1 X_i + \epsilon_i$
+
+. . .
+
+* Reduced model: $Y_i = \beta_0 + \epsilon_i$
+
+. . .
+
+* Implied test: $H_0: \beta_1 = 0 \quad vs \quad H_1: \beta_1 \ne 0$
+
+    - $F_{obs} = \frac{SSE(R) - SSE(F)}{df_R - df_F} \div \frac{SSE(F)}{df_F}$
+    
+    - Reject $H_0$ whenever $F_{obs} > F_{1 - \alpha, df_R - df_F, df_F}$
+    
+    - More useful in multiple linear regression, but we'll introduce it here!
+
+
+## Example: rocket propellant data 
+
+```{r rocket-05}
+# Fit an intercept only model
+rocket_fit_reduced <- lm(strength ~ 1, data = rocket)
+mean(rocket$strength)  # compare to estimated intercept  #<<
+anova(rocket_fit_reduced, rocket_fit)  # compare models  #<<
+```
+
+
+# Estimation vs. prediction
+
+
+## Estimating the mean response
+
+* Regression analysis is really a problem of estimating a conditional mean or expectation, for example, in SLR we have $$E\left(Y|X\right) = \beta_0 + \beta_1 X$$
+
+* Here, $E\left(Y|X\right)$ corresponds to the average value of the response $Y$ for all units in the population with a specific $X$ value
+
+
+## Estimating the mean response
+
+Suppose we want to estimate the mean strength of .bold[all rockets] with an age of 15 weeks
+
+. . .
+
+How do we estimate $E\left(strength | age = 15\right)$?
+
+. . .
+
+$\hat{Y} = 2627.822 − 37.154(15) = 2070.512$ (psi)
+
+
+## CI for the mean response
+
+* We can estimate the mean response given $X = X_0$ as $\hat{E}\left(Y|X = X_0\right) = \hat{\beta}_0 + \hat{\beta}_1 X_0 = \hat{Y}_0$ 
+
+* How can we construct a CI for $E\left(Y|X = X_0\right) = \beta_0 + \beta_1 X_0$? `r emo::ji("thinking")`
+
+$$\frac{\hat{Y}_0 - E\left(\hat{Y}_0\right)}{\hat{SE}\left(\hat{Y}_0\right)} = \frac{\left(\hat{\beta}_0 + \hat{\beta}_1 X_0\right) - \left(\beta_0 + \beta_1 X_0\right)}{\sqrt{\hat{Var}\left(\hat{\beta}_0 + \hat{\beta}_1 X_0\right)}} \sim t_{n-2}$$
+
+
+## CI for the mean response
+
+* $E\left(\hat{Y}_0\right) = \beta_0 + \beta_1 X_0$
+
+* $\hat{SE}\left(\hat{Y}_0\right) = MSE\left[\frac{1}{n} + \frac{\left(X_0 - \bar{X}\right)^2}{S_{xx}}\right]$
+
+A $1 - \alpha$ CI for the mean response at $X = X_0$ is given by $$\hat{Y}_0 \pm t_{1 - \alpha/2, n-2} MSE\left[\frac{1}{n} + \frac{\left(X_0 - \bar{X}\right)^2}{S_{xx}}\right]$$
+
+At what point is this interval smallest?
+
+
+## Example: rocket propellant data
+
+```{r rocket-conf-band-01}
+# Confidence interval for the mean response at age = 15
+new_data <- data.frame(age = 15)
+predict(rocket_fit, newdata = new_data, 
+        interval = "confidence")
+```
+
+---
+
+```{r rocket-conf-band-02}
+# Plot a 95% (pointwise) confidence band
+plotFit(rocket_fit, interval = "confidence")
+abline(v = 15, col = "red2")
+```
+
+---
+
+```{r rocket-conf-band-03}
+# Extrapolation
+plotFit(rocket_fit, interval = "confidence", 
+        shade = TRUE, xlim = c(-20, 100))
+```
+
+
+## Estimation vs. prediction
+
+Suppose we want to predict the strength of a new rocket at an age of 15 weeks. Then we would simply plug $X = 15$ into the estimated regression equation to get a predicted value of $\hat{Y} = 2627.822 − 37.154(15) = 2070.512$ (psi).
+
+* For the **estimation problem**, we wanted to estimate the mean of the population of all rockets that are 15 weeks old 
+    
+* For the **prediction problem**, we want to predict the strength of a **single rocket** at 15 weeks
+
+In both cases, we use $\hat{Y} = 2070.512$ as the predicted strength and as the estimate of the mean strength of of rockets that are 15 weeks old
+
+
+## Estimation vs. prediction
+
+* There is more uncertainty associated with predicting a single new observation (**Why?** `r emo::ji("thinking")`)
+
+* For a given value of $X$, it is customary to compute **confidence intervals for an estimated mean response** and a **prediction interval for a single new response value**
+
+* The idea of a prediction interval is to determine an interval that will contain a certain percentage of the population
+
+  - Because a prediction interval is attempting to capture a single, random future response, as opposed to the mean of the conditional population, it will be wider than the associated confidence interval
+
+---
+
+[Confidence intervals vs prediction intervals](https://stats.stackexchange.com/questions/16493/difference-between-confidence-intervals-and-prediction-intervals)
+
+
+# The coefficient of determination ($R^2$)
+
+
+## Coefficient of determination ($R^2$)
+
+* A useful performance metric in linear regression, called the *coefficient of determination*, is defined as $$R^2 = \frac{SSR}{SST} = 1 - \frac{SSE}{SST}$$
+
+* In linear regression, $R^2$ can be interpreted as the fraction of variance explained (FVE) (i.e., the proportion of the variation in $Y$ that can be explained by $X$)
+
+  - $0 \le R^2 \le 1$
+
+
+## Example: rocket propellant data
+
+```{r rocket-rsquared-01}
+# Extract R-squared from the model summary
+summary(rocket_fit)$r.squared
+```
+
+
+## Example: rocket propellant data
+
+```{r rocket-rsquared-02}
+# ANOVA decomposition
+anova(rocket_fit)
+```
+
+
+## Example: rocket propellant data
+
+```{r rocket-rsquared-03}
+# Compute R-squared by hand
+SSE <- anova(rocket_fit)["Residuals", "Sum Sq"]
+SST <- sum((rocket$strength - 
+              mean(rocket$strength)) ^ 2)
+round(c(SSE, SST, 1 - SSE/SST), digits = 3)
+```
+
+
+## Common misunderstandings about $R^2$
+
+* A high $R^2$ (i.e., near 1) indicates that a useful (i.e., accurate) prediction can be made
+
+* A high $R^2$ (i.e., near 1) indicates that the estimated regression line provides a good fit to the data
+
+* A small $R^2$ (i.e., near zero) indicates that $X$ and $Y$ are not related
+
+
+## Other things to look out for `r emo::ji("eyes")`
+
+* $R^2$ will ALWAYS increase when more terms are added to the model (**more on this in multiple linear regression**)
+
+* As the range of $X$ increases/decreases, $R^2$ also generally increases/decreases
+
+* $R^2$ does not indicate the "appropriateness" of a linear model
+
+So why even use the coefficient of determination?
+
+
+## Coefficient of correlation
+
+In SLR, there is a connection between $R^2$ and the Pearson correlation coefficient between $X$ and $Y$: $$r = \pm \sqrt{R^2}$$
+
+*r* will have the same sign as the estimated slope!
+
+
+## Example: rocket propellant data
+
+```{r rocket-08}
+# Compute coefficient of correlation
+(r_squared <- summary(rocket_fit)$r.squared)
+sqrt(r_squared)
+cor(rocket)  # compare with correlation coefficient
+```

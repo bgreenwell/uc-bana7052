@@ -1,0 +1,137 @@
+---
+title: "BANA 7052\tApplied Linear Regression (2 cr.)"
+subtitle: Fall Semester, 2021
+output:
+  pdf_document: default
+  html_document: default
+---
+
+Section 001 Wed. 6pm-9:50pm, LINDHALL 2120
+
+Section 002 Thu. 6pm-9:50pm, LINDHALL 4230
+
+
+### Instuctor:
+
+**Name:** Dr. Brandon M. Greenwell
+
+**Office:** 106 Carl H. Lindner Hall
+
+**Email:** greenwbm@ucmail.uc.edu
+
+**Office hours:** By appointment (usually before or after class)
+
+**Phone:** 614-288-9450
+
+
+### Teaching assistant:
+
+**Name:** Jiantong Wang, PhD student
+
+**Email:** wang5jt@mail.uc.edu
+
+
+### Course info:
+
+**URL:**	https://github.com/bgreenwell/uc-bana7052	
+
+Course materials including syllabus, lecture notes, reading assignments, homework, data sets, R programs, and course handouts will be posted on the course web page and in the corresponsing Teams channel.
+
+**Prerequisites:** Undergraduate Introduction to Probability and Statistics.
+
+**Recommended text:** [Applied Linear Regression Models](https://www.amazon.com/Applied-Linear-Regression-Models-Student/dp/0073014664) (no need to buy)
+
+
+### Grading:	
+
+* Homework (group) 70%
+<!-- * Quiz				     20% -->
+* Exam				     30%
+
+
+### Grade scale:
+
+Letter grade is assigned with the following scale:
+
+* A-range: 90--100%
+
+* B-range: 80--89%
+
+* C-range: 70--79%
+
+* D-range: 60--69%
+
+* F-range: 0--50%
+
+'Plus' and 'Minus' grades will not be used. Final letter grade is assigned based on an overall assessment of your grade, intragroup evaluation, and class performance at the instructor’s discretion.
+
+Absolutely NO extra credit request after the exams. However, please feel free to impress the instructor through active class participation, volunteering and HW presentation, etc. DURING the semester. The instructor reserves the right to possibly lift or downgrade your final letter grade based on intragroup evaluations, class participation, etc.
+
+
+### Exam and honor policy:
+
+The final Exam is in-class, closed-book, and closed-notes. You can bring a two-sided cheat sheet (handwritten on a standard $8.5' \times 11'$ paper), which will be turned in along with the exam. Anyone cheating or assisting another during an exam will be given a 0 for that exam and possibly a grade of F for the class. College procedures will be followed and the graduate dean will be notified.
+
+Quizzes may be computational, involving some in-class exercising. They are open-book, open-notes, and Google search is allowed. However, any form of peer-to-peer communication is strictly prohibited. 
+	
+	
+### Academic integrity: 
+
+As with all Lindner College of Business efforts, this course will uphold the highest ethical standards, critical to building character (the C in PACE). Ensuing your integrity is vital and your responsibility. LCB instructors are required to report ANY incident of academic misconduct (e.g., cheating, plagiarism) to the college review process, which could result in severe consequences, including potential dismissal from the college. For further information on Academic Misconduct or related university policies and procedures, please see the UC Code of Conduct (http://www.uc.edu/conduct/Code_of_Conduct.html).
+Use of Electronic Devices: Cell phones should be switched off during classes. Laptops should be used only for course related practice. Any form of entertainment (online chatting, watching videos and the like) is prohibited. Violations will result in dismissal from the class.
+
+
+### Class communication:
+
+We'll use the corresponding course/section Teams channel as much as possible for communication. 
+
+
+### Submission information:
+
+Group homework is to be submitted in person at the beginning of the following class (I only need one copy per group); please be sure to include everyone's name and your corresponding group number on the assignment. Homework should be graded and handed out at the beginning of the class after submission; please share the homework grades with your group members. 
+
+
+### Computing resources:  
+
+We'll be using R for all analyses in this course. You can download R for free at http://www.r-project.org/. It is also recommended that you download and use RStudio (you'll still need to download and install R): https://www.rstudio.com/. If you're new to R, try out this free [DataCamp course](https://www.datacamp.com/courses/free-introduction-to-r?utm_source=adwords_ppc&utm_campaignid=805200711&utm_adgroupid=42045039256&utm_device=c&utm_keyword=%2Bdata%20%2Bcamp%20%2Br&utm_matchtype=b&utm_network=g&utm_adpostion=1t1&utm_creative=191102095622&utm_targetid=kwd-424954486289&utm_loc_interest_ms=&utm_loc_physical_ms=9015705&gclid=CjwKCAjwrNjcBRA3EiwAIIOvq-DJIlhOIc3C6hbXvU5JQ6YV71frIOKyka9E_TA6fZGUO2g1qzMy4BoCEKIQAvD_BwE).
+
+
+### Homework group work structure of the course:  
+
+After the first class, each student will be placed into a homework group at random. Each group will typically consist of 4--5 students. This work group will be maintained for the length of the semester. The work group will cooperate in all homework given during the semester. All members of a group will share grades on any submitted work. All members are to contribute equitably to the shared workload, carrying a fair weight for the burden. At the end of semester, members of each group will be asked to evaluate the contribution of the other group members on the basis of a number of criteria, such as: intellectual contribution, attendance at group meetings, mentoring and sharing knowledge, writing up the results, and running relevant R code. The peer score will reflect, in some sense, an average over all the assigned work as well as an average of the above criteria. Thus, a student in a work group who may have contributed much on one assignment, may not have contributed the majority of the work on another, yet still such work may be considered by other members to be meritorious "on the average". 
+
+
+### Student learning outcomes:
+
+Upon successful completion of this course, the learner will be able to:
+        
+1. Understand the concepts and be able to identify correct random variables and various probability and sampling distributions and make important calculations for statistical inferences. 
+
+2. Carry out statistical inferences on real world data by formulating null and alternative hypotheses, choosing a test statistic, describing the rejection criteria, making a statistical decision and drawing a business conclusion in an appropriate and correct manner.
+
+3. Understand the concepts of linear regression, its estimators, and inferences and be able to make important calculations.
+
+4. Carry out statistical analyses on real world data by applying estimation, linear regression model fitting, and significance testing methodologies in an appropriate and correct manner.
+ 
+5. Critically assess whether or not underlying assumptions for the use of the statistical methodology have been violated, and to take remedial measures if violation of these assumptions are detected.  
+
+6. Use high-level statistical software, such as SAS and R, for the statistical analyses on real world data.
+ 
+7. To communicate the results of statistical analyses in language understandable to the general public such as a supervisor or colleague who may not have expertise in statistical methodology. 
+
+Students will have homework assignments, quizzes (possibly), and exams on which the above objectives will be measured.  
+
+
+### Tentative schedule (please bring your laptop to all classes)
+
+|  Week | Date (001/002) | Topic | Chapters | Assignment |
+|:------|:-----|:------|:---------|:-------------|
+| 1 | Oct 13/Oct 14 | Correlation and simple linear regression | 1 | Homework 1 |
+| 2 | Oct 20/Oct 21 | Inferences for SLR | 2 | Homework 2 |
+| 3 | Oct 27/Nov 28 | Multiple linear regression/matrix approach | 5, 6, 7 | Homework 3 |
+| 4 | Nov 03/Nov 04 | Diagnostics and remedial measures | 3, 10 | Homework 4 |
+| 5 | Nov 10/Nov 11 | Quantitative and qualitative predictors; Transformations | 7.6, 10.5, 8 | Homework 5 |
+| 6 | Nov 17/Nov 18 | Model selection and validation; Introduction to MARS | 9 | |
+| 7 | Nov 24/Nov 25 | No Class
+| 8 | Dec 01/Dec 02 | Review; final exam (7--9) | | |
+

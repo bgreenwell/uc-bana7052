@@ -1,0 +1,788 @@
+---
+title: "Residual Diagnostics and Leverage"
+author: "Brandon M. Greenwell"
+institute: "University of Cincinnati"
+format: 
+  revealjs:
+    logo: images/uc.png
+    chalkboard: true
+    slide-number: true
+    scrollable: true
+    auto-play-media: false
+    footer: "BANA 7052: Applied Linear Regression"
+---
+
+## Main topics
+
+- Types of residuals
+- Basic diagnostic plots
+- Leverage values and "unusual" data
+- Multicollinearity and variance inflation factors
+
+```{r, setup}
+library(knitr)
+
+opts_chunk$set(
+  echo = TRUE,
+  dpi = 300,     
+  #fig.retina = 3,  
+  fig.align = "center",
+  fig.width = 6,
+  fig.asp = 0.618,
+  out.width = "100%",
+ # size = "small",
+  message = FALSE,
+  warning = FALSE,
+  error = FALSE
+)
+
+knit_hooks$set(
+  par = function(before, options, envir) {
+    if (before && options$fig.show != "none") {
+      par(
+        mar = c(4, 4, 0.1, 0.1), 
+        cex.lab = 0.95, 
+        cex.axis = 0.8,  # was 0.9
+        mgp = c(2, 0.7, 0), 
+        tcl = -0.3, 
+        las = 1
+      )
+      if (is.list(options$par)) {
+        do.call(par, options$par)
+      }
+    }
+  },
+  par2 = function(before, options, envir) {
+    if (before && options$fig.show != "none") {
+      par(
+        mar = c(4, 4, 1.2, 0.1), 
+        cex.lab = 0.95, 
+        cex.axis = 0.8,  # was 0.9
+        mgp = c(2, 0.7, 0), 
+        tcl = -0.3, 
+        las = 1
+      )
+      if (is.list(options$par)) {
+        do.call(par, options$par)
+      }
+    }
+  }
+)
+```
+
+
+## Required packages
+
+```{r packages}
+pkgs <- c(
+  "car",      # for the vif() function
+  "ggplot2",  # for generating some of the figures
+  "glmnet",   # for elastic net (i.e., ridge and LASSO)
+  "ISLR2"     # for the Hitters data
+)
+install <- setdiff(pkgs, installed.packages()[, "Package"])
+install.packages(install)
+
+library(ggplot2)
+
+theme_set(theme_bw())  # set ggplot2 theme for the lecture
+
+# Use a more colorblind-friendly color palette
+palette("Okabe-Ito")
+```
+
+
+## Learning more
+
+:::: {.columns}
+
+::: {.column width="50%"}
+* John Fox's [course notes](https://socialsciences.mcmaster.ca/jfox/Courses/Brazil-2009/slides-handout.pdf)
+
+* John Fox's [book](https://us.sagepub.com/en-us/nam/regression-diagnostics/book269026)
+
+* John Fox's [car](https://cran.r-project.org/package=car) package has lots of utilities for performing regression diagnostics
+:::
+
+::: {.column width="50%"}
+![](images/regression-diagnostics-book.jpeg){width="65%"}
+:::
+
+::::
+
+
+# Types of residuals
+
+
+## Residual diagnostics
+
+* What's wrong with my model and how do I fix it?
+
+  - All statistical models make assumptions!
+  - No model is perfect (nor is the data)
+
+* Diagnostic plots^[I'm not a fan of diagnostic (statistical) tests, like normality tests. Plots are often much more informative!] based on *residuals* and *leverage* values can help identify issues with the model
+
+  - What are [residuals](https://en.wikipedia.org/wiki/Errors_and_residuals) and [leverage](https://en.wikipedia.org/wiki/Leverage_(statistics)) values?
+  - What are some common and useful diagnostic plots?
+
+
+## MLR assumptions
+
+Consider a standard MLR model: $$Y_i = \beta_0 + \beta_1 X_{i1} + \dots + \beta_{p-1} X_{i, p-1} + \epsilon_i, \quad i = 1, 2, \dots, n$$
+
+The typical assumptions:
+
+1. Independent observations: $Cov\left(\epsilon_i, \epsilon_j\right) = 0$ $\left(i \ne j\right)$
+
+2. Constant variance: $Var\left(\epsilon_i\right) = Cov\left(\epsilon_i, \epsilon_i\right) = \sigma^2$
+
+3. Normally distributed errors: $\epsilon_i \stackrel{iid}{\sim} N\left(0, \sigma^2\right)$
+
+4. We assume that we have the **correct model** (or at least a useful one)!
+
+
+## What is a residual?
+
+* Think of residuals as the "observed errors" from the model
+
+* Computed as the difference between the actual response value and its corresponding prediction (or fitted value)
+
+More specifically, the $i$-th residual ($r_i$) is defined as $$r_i = y_i - \hat{y}_i,$$ where $\hat{y}_i = \hat{\beta}_0 + \sum_{j = 1} ^ p \hat{\beta}_j x_{ij}$. Or, in matrix notation, $$\boldsymbol{r} = \boldsymbol{y} - \hat{\boldsymbol{y}} = \left(\boldsymbol{I}_n - \boldsymbol{H}\right)\boldsymbol{y}$$
+
+
+## What can residual plots tell us?
+
+* Residuals vs. predictor values (**checking non-linearity**).
+
+* Residuals vs. fitted values (**non-constant variance and non-linearity**)
+
+* Residuals vs. time or another sequence (**non-independence**)
+
+* Residuals vs. omitted predictor values (**missing potentially important predictors**)
+
+* Normal quantile-quantile plot of residuals (**non-normality**).
+
+* And many, many more!
+
+
+---
+
+```{r}
+#| echo: true
+#| code-fold: true
+#| eval: true
+#| fig.asp: 1
+#| out.width: "55%"
+#| par2: true
+# Simualated data sets
+set.seed(101)  # for reproducibility
+n <- 100
+df1 <- tibble::tibble(
+  x = runif(n, min = -5, max = 5),
+  y = 1 + 2*x^2 + rnorm(n, sd = 10)
+)
+df2 <- tibble::tibble(
+  x = runif(n, min = 1, max = 10),
+  y = 1 + 4*x + rnorm(n, sd = 2*x)
+)
+df2 <- rbind(df2, data.frame(x = 2, y = 50))
+df3 <- tibble::tibble(
+  x = runif(n, min = 1, max = 10),
+  y = 1 + 4*x + arima.sim(list(order = c(1,0,0), ar = 0.99), n = n, sd = 20)
+)
+df4 <- tibble::tibble(
+  x = runif(n, min = 1, max = 10),
+  y = 1 + 4*x + rlnorm(n, sd = 0.9)
+)
+
+# Fitted models
+fit1 <- lm(y ~ x, data = df1)
+fit2 <- lm(y ~ x, data = df2)
+fit3 <- lm(y ~ x, data = df3)
+fit4 <- lm(y ~ x, data = df4)
+
+# Extract residuals from each model
+r1 <- residuals(fit1)
+r2 <- rstandard(fit2)
+r3 <- residuals(fit3)
+r4 <- residuals(fit4)
+
+# Residual plots
+par(mfrow = c(2, 2))
+plot(df1$x, r1, xlab = "X", ylab = "Residual", 
+     main = "Misspecified mean structure")
+abline(h = 0, lty = "dotted", col = "red2")
+lines(lowess(df1$x, r1), col = "dodgerblue", lwd = 3)
+plot(df2$x, r2, xlab = "X", ylab = "Residual",
+     main = "Non-constant variance")
+points(df2$x[101L], r2[101L], pch = 19, col = "red2")
+abline(h = 0, lty = "dotted", col = "red2")
+plot(residuals(fit3), xlab = "Index", ylab = "Residual", type = "l",
+     main = "Serial correlation")
+points(residuals(fit3), col = adjustcolor("black", alpha.f = 0.2))
+abline(h = 0, lty = "dotted", col = "red2")
+qqnorm(r4, main = "Non-normal errors", ylim = c(-5, 15))
+qqline(r4, lty = "dotted", col = "red2")
+```
+
+
+## Scaled residuals
+
+* Residuals help in identifying a misspecified mean structure (i.e., $f\left(\boldsymbol{X}\right) = \boldsymbol{X}\boldsymbol{\beta}$)
+
+* *Scaled residuals* help in identifying outliers or extreme values
+
+* Common types of residuals^[I've seen "standardized" and "studentized" defined differently across texts and software!]:
+
+  - Standardized Residuals
+    
+  - Studentized residuals
+    
+  - PRESS Residuals 
+
+
+## Standardized/studentized residuals
+
+$$r_i^{stan} = \frac{r_i}{\sqrt{Var\left(r_i\right)}}$$
+
+* We want the standardized residuals to have **mean zero** and **unit variance**
+
+* Large positive/negative values of $r_i^{stan}$, say $\left|r_i^{stan}\right| > 3$, may indicate an outlier
+
+So what is $Var\left(r_i\right)$? `r emo::ji("thinking")`
+
+
+## Standardized/studentized residuals
+
+If $\epsilon_i \stackrel{iid}{\sim} N\left(0, \sigma^2\right)$, then $\epsilon_i/\sigma \stackrel{iid}{\sim} N\left(0, 1\right)$, so it seems intuitive to define a standardized residual as $$r_i^{stan} =\frac{r_i}{\sqrt{MSE}} = \frac{r_i}{RMSE}$$
+
+However, $$Var\left(r_i\right) \ne MSE$$ 
+
+
+## Standardized/studentized residuals
+
+* Recall that $r_i = y_i - \hat{y}_i$ (or $\boldsymbol{r} = \boldsymbol{y} - \hat{\boldsymbol{y}})$
+
+* It can be shown that the variance of $r_i$ is given by $$\sigma^2\left(1 - h_i\right),$$ which can be estimated with $MSE\left(1 - h_i\right)$
+
+* Studentized residual: $r_i^{stud} = \frac{r_i}{\sqrt{MSE\left(1 - h_i\right)}}$
+
+  - Variance of residuals depends on $\boldsymbol{X}$
+
+  - More effective at detecting outlying response values
+
+
+## PRESS residuals
+
+* Another refinement to make the residuals more effective at detecting outlying $Y$ observations is to measure the *i*-th residual $r_i = Y_i - \hat{Y}_i$ when the fitted regression is based on all of the cases except the *i*-th one
+
+  - Also referred to as the *deleted residuals* or *jackknife residuals*
+
+  - A form of [leave one out cross-validation](https://en.wikipedia.org/wiki/Cross-validation_(statistics)#Leave-one-out_cross-validation) (LOOCV)
+
+* It can be shown that these residuals can be obtained without refitting the model $n$ times using $$r_i^{PRESS} = d_i = \frac{r_i}{1 - h_i}$$
+
+* PRESS statistic: $PRESS = \sum_{i=1}^n d_i^2$ (useful for model building/selection)
+
+:::
+See `?stats::influence.measures` (and the references therein) for even more!
+:::
+
+
+# Basic diagnostic plots
+
+
+## Assessing normality
+
+* Normal quantile-quantile (Q-Q) plot* can be used to asses the "normalityness" of a set of observations
+
+* Q-Q plots can, in general, be used to compare data with any distribution!
+
+
+---
+
+```{r}
+#| fig.width: 6
+#| fig.asp: 0.618
+#| out.width: "70%"
+set.seed(101)
+x <- rnorm(100)
+qqnorm(x, main = "Normal distribution")
+qqline(x, lty = "dotted", col = "red2")
+```
+
+
+---
+
+```{r}
+#| fig.width: 6
+#| fig.asp: 0.618
+#| out.width: "70%"
+set.seed(101)
+x <- rlnorm(100)
+qqnorm(x, main = "Right-skewed distribution")
+qqline(x, lty = "dotted", col = "red2")
+```
+
+
+---
+
+```{r}
+#| fig.width: 6
+#| fig.asp: 0.618
+#| out.width: "70%"
+set.seed(101)
+x <- -rlnorm(100)
+qqnorm(x, main = "Left-skewed distribution")
+qqline(x, lty = "dotted", col = "red2")
+```
+
+
+---
+
+```{r}
+#| fig.width: 6
+#| fig.asp: 0.618
+#| out.width: "70%"
+set.seed(101)
+x <- rt(100, df = 1)
+qqnorm(x, main = "Heavy-tailed distribution")
+qqline(x, lty = "dotted", col = "red2")
+```
+
+
+## Assessing normality
+
+* Normality tests, like the [Shapiro-Wilk](https://en.wikipedia.org/wiki/Shapiro%E2%80%93Wilk_test)^[In R, see `?shapiro.test` for details.] and [Anderson-Darling](https://en.wikipedia.org/wiki/Anderson%E2%80%93Darling_test) tests, can also be used to assess normality
+
+  - I STRONGLY ADVISE AGAINST USING THEM!
+  
+* No data is normally distributes, what we care about is whether enough a normal approximation is close enough!
+
+* Normality tests provide a $p$-value, which only gives a yes/no conclusion
+
+  - Recall that $p$-values are a function of sample size
+
+
+---
+
+```{r}
+# Shapiro-Wilk test results vs. sample size
+set.seed(101)  # for reproducibility
+x <- replicate(100, c(
+  shapiro.test(rt(10, df = 40))$p.value,
+  shapiro.test(rt(100, df = 40))$p.value,
+  shapiro.test(rt(500, df = 40))$p.value,
+  shapiro.test(rt(1000, df = 40))$p.value,
+  shapiro.test(rt(2500, df = 40))$p.value,
+  shapiro.test(rt(5000, df = 40))$p.value
+))
+rownames(x) <- paste0("n=", c(10, 100, 500, 1000, 2500, 5000))
+rowMeans(x < 0.05)
+```
+
+
+---
+
+```{r}
+#| echo: false
+#| par: true
+#| fig.width: 6
+#| fig.asp: 0.618
+#| out.width: "100%"
+x <- seq(from = -5, to = 5, length = 500)
+y1 <- dnorm(x)
+y2 <- dt(x, df = 40)
+# palette("Okabe-Ito")
+plot(x, y1, type = "l", ylab = "Density")
+lines(x, y2, col = 2)
+legend("topleft", legend = c("Standard normal", "t (df = 40)"), lty = 1,
+       col = c(1, 2), inset = 0.01, bty = "n")
+# palette("default")
+```
+
+1. Are these two distributions significantly different?
+
+2. Are these two distributions practically different?
+
+
+## Example: MLB salary data
+
+```{r}
+mlb <- ISLR2::Hitters
+mlb <- mlb[!is.na(mlb$Salary), ]  # rm rows w/ missing response values
+str(mlb)
+```
+
+::: aside
+See `?ISLR2::Hitters` for details
+:::
+
+
+## Example: MLB salary data
+
+For now, we'll consider only five variables:
+
+* `Salary` - 1987 annual salary on opening day in thousands of dollars 
+
+* `CRBI` - number of runs batted in during his career
+
+* `CHits` - number of hits during his career
+
+* `Walks` - number of walks in 1986
+
+* `Runs` - number of runs in 1986
+
+
+## Example: MLB salary data
+
+```{r}
+#| echo: false
+#| par: true
+#| out.width: "100%"
+pairs(~ Salary + CRBI + CHits + Walks + Runs, data = mlb, cex = 0.8,
+      col = adjustcolor(col = "black", alpha.f = 0.3))
+```
+
+
+## Example: MLB salary data
+
+<!-- The full model: $$E\left(\texttt{Salary}\right) = \beta_0 + \beta_1\texttt{CRBI} + \beta_1\texttt{CHits} \\+ \beta_1\texttt{Walks} + \beta_1\texttt{Runs}$$ -->
+
+```{r}
+mlb.fit <- lm(Salary ~ CRBI + CHits + Walks + Runs, data = mlb)
+summary(mlb.fit)
+```
+
+
+## Example: MLB salary data
+
+```{r}
+r.ord <- residuals(mlb.fit)  # ordinary residuals
+r.stu <- rstandard(mlb.fit)  # studentized residual 
+f.val <- fitted(mlb.fit)     # fitted values
+```
+
+
+## Example: MLB salary data
+
+```{r}
+#| out.width: "80%"
+qqnorm(r.ord)
+qqline(r.ord, col = 2)  # add reference line
+```
+
+
+## Example: MLB salary data
+
+```{r}
+#| out.width: "80%"
+#| par: true
+hist(mlb$Salary, xlab = "Salary", main = "")  # default histogram
+```
+
+::: aside
+The response will not necessarily look like a normal distribution! (Think about why?)
+:::
+
+
+## Example: MLB salary data
+
+```{r}
+#| par: true
+#| out.width: "80%"
+plot(f.val, y = r.ord, xlab = "Fitted value", ylab = "Residual")
+abline(h = 0, lty = 2, col = 2)  # add reference line
+```
+
+
+## Example: MLB salary data
+
+```{r}
+#| par: true
+#| out.width: "80%"
+plot(f.val, y = r.stu, xlab = "Fitted value", ylab = "Studentized residual")
+abline(h = c(-3, 0, 3), lty = 2, col = 2)  # add reference lines
+```
+
+
+## Example: MLB salary data
+
+```{r}
+#| echo: true
+#| eval: false
+xvars <- c("CRBI", "CHits", "Walks", "Runs")
+par(mfrow = c(2, 2), las = 1)  # set plotting parameters
+for (xvar in xvars) {
+  plot(mlb[[xvar]], y = r.stu, xlab = xvar, ylab = "Studentized residual",
+       col = adjustcolor(1, alpha.f = 0.5))
+  lines(lowess(mlb[[xvar]], y = r.stu), col = 3)
+  abline(h = 0, lty = 2, col = 2)  # add reference line
+}
+```
+
+
+## Example: MLB salary data
+
+```{r}
+#| echo: false
+#| eval: true
+#| par: true
+xvars <- c("CRBI", "CHits", "Walks", "Runs")
+par(mfrow = c(2, 2), las = 1)  # set plotting parameters
+for (xvar in xvars) {
+  plot(mlb[[xvar]], y = r.stu, xlab = xvar, ylab = "Studentized residual",
+       col = adjustcolor(1, alpha.f = 0.5))
+  lines(lowess(mlb[[xvar]], y = r.stu), col = 3)
+  abline(h = 0, lty = 2, col = 2)  # add reference line
+}
+```
+
+
+
+## Example: MLB salary data
+
+```{r}
+# Added-variable plots
+car::avPlots(mlb.fit)
+# marginalModelPlot(mlb.fit)
+```
+
+
+## Example: MLB salary data
+
+In summary, so far:
+
+* Heavy-tailed residuals (i.e., not normal)
+
+* Non-constant variance; variance seemingly increases with the fitted value and some of the predictors, line `Runs`
+
+* Misspecified mean response; response has a nonlinear relationship with some of the predictors, like `CRBI` and `CHits`
+
+We'll learn how to potentially correct these issues in [Lecture 5]()!
+
+
+# Leverage values and "unusual" data
+
+
+## High leverage points
+
+* Observations relatively far away from the center of the predictor space^[Taking into account the correlation pattern among the predictors.] have potentially greater influence on the LS coefficients
+
+* The [hat values](https://en.wikipedia.org/wiki/Leverage_(statistics)), $h_i$, provide such a measure!
+
+* Check out these sample applications written:
+
+  - https://omaymas.github.io/InfluenceAnalysis/
+
+  - https://shiny.rit.albany.edu/stat/outliers/
+
+
+## High leverage points
+
+* Recall that the $\hat{\boldsymbol{y}} = \boldsymbol{X}\left(\boldsymbol{X}'\boldsymbol{X}\right)^{-1}\boldsymbol{X}'\boldsymbol{y} = \boldsymbol{H}\boldsymbol{y}$
+
+* The hat values are just the diagonal entries of the [hat matrix](https://en.wikipedia.org/wiki/Projection_matrix) $$h_i = \boldsymbol{x}_i\left(\boldsymbol{X}'\boldsymbol{X}\right)^{-1}\boldsymbol{x}'_i\boldsymbol{y}$$
+
+* Think of $h_i$ as the degree by which the $i$-th observation influences the $i$-th fitted (or predicted) value (i.e., $\hat{y}_i$)
+
+* It can also be thought of as a weighted distance between $\boldsymbol{x}_i$ and the center (or mean) of all the $\boldsymbol{x}_i$'s.
+
+
+## High leverage points
+
+Some properties of the hat values:
+
+* $0 \le h_i \le 1$
+
+* $\sum_{i = 1} ^ n h_i = k$, where $k$ is the number of coefficients in the model
+
+**Rule of thumb**: cases with leverage values greater than $2k / n = 2\bar{h}$ can be considered as outliers with respect to their predictor values (i.e., high leverage)
+
+
+## Example: MLB salary data
+
+```{r}
+#| par: true
+#| out.width: "70%"
+h <- hatvalues(mlb.fit)
+out <- which(h > 2 * mean(h))
+plot(h, type = "h", ylim = extendrange(h, f = 0.15))
+abline(h = 2 * mean(h), col = 2)
+text(out, y = h[out], labels = out, pos = 3, col = 3)
+```
+
+
+## Example: MLB salary data
+
+```{r}
+mlb[max.h <- which.max(h), ]
+```
+
+* [Pete Rose](https://en.wikipedia.org/wiki/Pete_Rose) is the all-time MLB leader in hits, games played, at-bats, singles, and outs.
+
+* An observation that is both outlying (w.r.t. the response) and has high leverage (i.e., is outlying with respect to the predictors) exerts *influence* on the estimated coefficients
+
+  - In other words, if the observation were removed, the estimated coefficients would change considerably
+
+
+## Example: MLB salary data
+
+```{r}
+plot(h, r.stu)
+abline(v = 2 * mean(h), h = c(-3, 0, 3), col = 2, lty = "dashed")
+text(h[max.h], y = r.stu[max.h], label = row.names(mlb)[max.h], col = 3, pos = 2)
+```
+
+
+## Hidden extrapolation in MLR {.smaller}
+
+:::: {.columns}
+
+::: {.column width="40%"}
+It is never a good idea to make predictions outside the region covered by the training data
+
+* This region is difficult to visualize whenever $k > 2$
+    
+* The diagonal entries of $\boldsymbol{H}$, denoted $h_{ii}$, can be useful for detecting outlying cases
+
+:::
+
+::: {.column width="60%"}
+```{r}
+#| echo: false
+library(ggplot2)
+hull <- mlb[chull(mlb$CHits, mlb$Walks), ]
+ggplot(mlb, aes(x = CHits, y = Walks)) +
+  geom_polygon(data = hull, fill = "blue", alpha = 0.1) +
+  geom_point(size = 3, alpha = 0.3) +
+  geom_point(data = mlb[c(201, 189), ], size = 3, col = "darkorange") +
+  theme_light()
+```
+
+:::
+
+::::
+
+* A new case, $x_{new}$, is considered "outlying" if $h_{new} = \boldsymbol{x}_{new}^\top\left(\boldsymbol{X}^\top\boldsymbol{X}\right)^{-1}\boldsymbol{x}_{new}$ lies outside of the range of the diagonal entries of $\boldsymbol{H}$
+    
+* See `?influence.measures`
+
+
+## Cook's distance
+
+* It's convenient to summarize the difference $\hat{\boldsymbol{\beta}}_{\left(-i\right)} - \hat{\boldsymbol{\beta}}$ by a singe number 
+
+* This can be done in several ways, one of which is called [Cook's distance](https://en.wikipedia.org/wiki/Cook%27s_distance): $$D_i = \left(\frac{r_i ^ 2}{k \times MSE}\right)\left(\frac{h_i}{1 - h_i}\right)$$
+
+* The presence of "large" $D_i's$ would suggest a *sensitivity analysis*
+
+* $D_i > 1$ is indicative of an influential observation (rough rule of thumb, and assumes a "large" sample size)
+
+
+## Example: MLB salary data
+
+```{r}
+#| par: true
+# Plot of vat values vs. studentized residuals vs. Cook's distance
+car::influencePlot(mlb.fit)
+```
+
+
+## Remedial measures
+
+Things to consider if you discover inadequacies in the model (not an exhaustive list):
+
+* Misspecified mean structure: transformations ([Lecture 5]()) and non-parametric algorithms (e.g., [GAMs](https://en.wikipedia.org/wiki/Generalized_additive_model), [MARS](https://en.wikipedia.org/wiki/Multivariate_adaptive_regression_spline), or [decision trees](https://www.routledge.com/Tree-Based-Methods-for-Statistical-Learning-in-R/Greenwell/p/book/9780367532468)), etc.
+
+* Non-constant variance: transformations ([Lecture 5]()), [weighted least squares](https://en.wikipedia.org/wiki/Weighted_least_squares), and [generalized linear models](https://en.wikipedia.org/wiki/Generalized_linear_model)
+
+* Outlying and/or influential observations: robust and resistant regression procedures
+
+    - See `?MASS::rlm` and `?MASS::lqs` for some options in R
+
+* Autocorrelation: time-series modeling
+
+
+# Multicollinearity and variance inflation factors
+
+
+## Multicolinearity {.smaller}
+
+* In many (typically non-experimental) situations, the predictor variables tend to be "correlated" among themselves
+
+* When this "correlation" is "high", [multicollinearity](https://en.wikipedia.org/wiki/Multicollinearity) is said to exist
+
+* Multicollinearity does not, in general, prevent us from obtaining a good fit! It can, however, cause other issues:
+
+    - **Multicollinearity can** cause some of the estimated coefficients to become unstable (i.e., high standard errors)
+    
+    - **Multicollinearity can** complicate the interpretation of the estimated coefficients (e.g., predicting crop yield from the amount of rainfall and hours of sunshine)
+    
+* A simple way to assess whether or not multicollinearity is present is to use [variance inflation factors](https://en.wikipedia.org/wiki/Variance_inflation_factor) (VIFs)
+
+    - VIFs are available from the R package [car](https://cran.r-project.org/package=car) as the next example illustrates
+
+
+## Multicolinearity {.smaller}
+
+It turns out you can rewrite the variance of $\hat{\beta}_j$ as $$var\left(\hat{\beta}_j\right) = \frac{MSE}{\left(n - 1\right) s_j^2} \times \frac{1}{1 - R_j^2},$$ where $R_j^2$ is the R-squared statistic from regressing $x_j$ on the all the other predictors
+
+* The quantity $VIF_j = 1 / \left(1 - R_j^2\right)$ is the VIF for predictor $x_j$
+
+* $VIF_j$ is a measure of the increase to $var\left(\hat{\beta}_j\right)$ due to collinearity with the other predictors
+
+* $\sqrt{VIF_j}$ describes the how much the typical CI for $\beta_j$ is expanded relative to similar, but uncorrelated data
+
+* A more generalized VIF (GVIF) can be used when categorical variables are included in the model (more on this in [Lecture 5]())
+
+::: aside
+See `?car::vif` for details and further references
+:::
+
+
+## Example: MLB salary data
+
+```{r}
+# Manually compute VIF for CRBI
+CRBI.fit <- lm(CRBI ~ CHits + Walks + Runs, data = mlb)
+1 / (1 - summary(CRBI.fit)$r.squared)  # 1 / (1 - R^2)
+
+# Use car package to get VIFs (or GVIFs) for all predictors
+car::vif(mlb.fit) 
+```
+
+<br>
+
+**Rough rule of thumb**: predictor $x_j$ could be causing multicollinearity issues if $VIF_j > 10$
+
+
+## Remedies for multicollinearity
+
+* Omit some of the predictors
+
+* Standardize the predictor column(s) (useful in polynomial models)
+
+* [Principal component analysis](https://en.wikipedia.org/wiki/Principal_component_regression) (PCA) or, even better, [partial least squares](https://en.wikipedia.org/wiki/Partial_least_squares_regression)
+
+* [Regularized regression](https://bradleyboehmke.github.io/HOML/regularized-regression.html) ([the official book](http://hastie.su.domains/StatLearnSparsity/))
+
+  - Ridge regression
+    
+  - The LASSO
+  
+  - The elastic net (i.e., ridge + LASSO penalties)
+
+
+## Example: MLB salary data
+
+```{r}
+#| par: true
+#| out.width: "70%"
+library(glmnet)
+
+X <- data.matrix(mlb[, c("CRBI", "CHits", "Walks", "Runs")])
+mlb.ridge <- glmnet(X, y = mlb$Salary, alpha = 0)
+plot(mlb.ridge, label = TRUE, xvar = "norm")
+```
